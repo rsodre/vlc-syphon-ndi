@@ -44,6 +44,9 @@ These answer the earlier open questions and set the working rules.
     (one VLC build for both apps), not from two libvlccore builds.
 - **Windows toolchain: MinGW-w64** (llvm-mingw or MSYS2), the same as VLC's own Windows builds.
   VLC's headers assume GCC/Clang. Spout2's DirectX 11 sender code builds with MinGW too.
+- **NDI colours:** the NDI 6.3.2 SDK receiver decodes every resolution as BT.709 limited range,
+  although NDI's docs say BT.601 for SD. The sender normalises to BT.709 by default
+  (`--ndi-bt709`, can be turned off).
 - **VideoLAN addons site:** addons.videolan.org exists, but as far as we know it hosts Lua
   extensions, skins and playlist parsers. VLC's built-in addon manager doesn't install native
   plugins. Optionally list the project there with a link to GitHub Releases (Phase 3), and later
@@ -163,9 +166,16 @@ Two ways to ship:
       End-to-end tests in `scripts/test-syphon-macos.sh` (8 cases), also checked in the VLC GUI.
       Details: [plugins/syphon/README.md](../plugins/syphon/README.md).
       - [ ] Later: HDR (PQ/HLG) tone mapping.
-- [ ] **Phase 2 – NDI video + audio filters:** load the runtime at startup; show a clear message if
-      it's missing.
-- [ ] **Phase 3 – Packaging:** VLCSyphon.app and VLCNDI.app (signed, notarized, DMG), plugin-only
+- [x] **Phase 2 – NDI video + audio filters (macOS):** runtime loaded on first frame from
+      `NDI_RUNTIME_DIR_V6` or the default install path; a one-time error dialog if missing.
+      Frames are sent at their presentation time by a worker thread (A/V offset ~+14 ms).
+      SD/full-range colours normalised to BT.709 (`--ndi-bt709`). Tests: `scripts/test-ndi-macos.sh`
+      (7 cases). Details: [plugins/ndi/README.md](../plugins/ndi/README.md).
+      - [ ] Run on Windows and Linux (contributors).
+      - [ ] Test with a real audio output and with third-party receivers (OBS/DistroAV, vMix, NDI Studio Monitor).
+- [ ] **Phase 3 – Packaging:** (notes: VLCNDI.app must default both `video-filter` and
+      `audio-filter` to `ndi`; keep VLC's `disable-library-validation` entitlement, which is what lets
+      the NDI runtime from `/usr/local/lib` load; add `NSLocalNetworkUsageDescription` to Info.plist) VLCSyphon.app and VLCNDI.app (signed, notarized, DMG), plugin-only
       zips, and a GitHub Actions release workflow (see Distribution).
 - [ ] **Phase 4 – Spout (Windows).**
 - [ ] **Phase 5 – VLC 4 adapter** once 4.0 is stable.

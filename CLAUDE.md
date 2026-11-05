@@ -41,7 +41,11 @@ decisions, phased to-do list), then `docs/PHASE0.md` (feasibility results).
 cmake --preset macos && cmake --build --preset macos   # -> build/macos/out/plugins/
 scripts/test-load-macos.sh hello                        # loads it in /Applications/VLC.app via VLC_PLUGIN_PATH
 scripts/test-syphon-macos.sh                            # Syphon end to end (uses tools/syphon-probe)
+NDI_RUNTIME_DIR_V6=~/Dev/apps/blendy-live/libs/NDI/darwin/macOS scripts/test-ndi-macos.sh   # NDI (tools/ndi-probe)
 ```
+
+The NDI runtime is not installed on the maintainer's Mac; tests use the SDK copy above.
+NDI discovery (mDNS) needs network access outside Claude's sandbox.
 
 `VLC_PLUGIN_PATH` must be an absolute path. On macOS, a visible video window needs `-I macosx`;
 with `-I dummy` use `--vout dummy`.

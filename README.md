@@ -16,8 +16,8 @@ Frames are published at the file's own resolution, not the window size.
 
 This project replaces [VLCSyphon](https://github.com/rsodre/VLCSyphon), which was a fork of VLC.
 
-> **Status:** early development. The **Syphon** plugin works with VLC 3.0.24 on macOS
-> (build it yourself for now, see [Build](#build)). NDI and the ready-made apps are next.
+> **Status:** early development. The **Syphon** and **NDI** plugins work with VLC 3.0.24 on macOS
+> (build them yourself for now, see [Build](#build)). The ready-made apps are next.
 
 ## Requirements
 
@@ -60,10 +60,13 @@ Restart playback for the change to apply.
 Or from the command line:
 
 ```sh
-vlc --video-filter=syphon movie.mp4        # Syphon only
-vlc --video-filter=ndi movie.mp4           # NDI only
-vlc --video-filter=syphon:ndi movie.mp4    # both
+vlc --video-filter=syphon movie.mp4                         # Syphon
+vlc --video-filter=ndi --audio-filter=ndi movie.mp4         # NDI, video and audio
+vlc --video-filter=syphon:ndi --audio-filter=ndi movie.mp4  # both
 ```
+
+NDI has a video filter and an audio filter. Turn on both for a source with sound: in
+Preferences, also tick **NDI** under **Audio** ▸ **Filters**.
 
 On macOS the VLC binary is `/Applications/VLC.app/Contents/MacOS/VLC`.
 
@@ -78,17 +81,30 @@ In **Preferences** ▸ **Show All** ▸ **Video** ▸ **Filters** ▸ **Syphon**
 
 Example: `vlc --video-filter=syphon --syphon-name="Stage Left" movie.mp4`.
 
+### NDI options
+
+In **Preferences** ▸ **Show All** ▸ **Video** ▸ **Filters** ▸ **NDI**, or on the command line:
+
+| Option | Default | |
+|---|---|---|
+| `--ndi-name` | `VLC` | Source name. Receivers show "COMPUTER (VLC)" |
+| `--ndi-bt709` | on | Convert SD and full-range colours to BT.709, which NDI receivers expect. Turn off if SD video looks wrong in your receiver |
+
 ### NDI needs the NDI Runtime
 
 The NDI plugin uses the free NDI Runtime, which you install yourself. It isn't included here.
-Download **NDI Tools** or the runtime from <https://ndi.video/tools/>. Without it, the NDI filter
-logs an error and does nothing. On macOS, allow VLC through the firewall when it asks.
+Download **NDI Tools** or the runtime from <https://ndi.video/tools/>. Without it, VLC shows an
+error once and keeps playing without NDI. If the runtime is somewhere unusual, set
+`NDI_RUNTIME_DIR_V6` to its folder.
+
+On macOS, allow VLC to access the local network (and through the firewall) when it asks.
 
 ### Limitations
 
 - Subtitles and VLC's on-screen messages are drawn after the filters, so they don't appear in the
   shared video.
 - HDR video (HDR10, HLG) is shared without tone mapping and looks washed out.
+- NDI sends video in 8 bits.
 
 ## Install the plugins into an existing VLC
 
@@ -161,9 +177,13 @@ to make the clips.
 
 ```sh
 scripts/test-syphon-macos.sh       # Syphon end to end: size and colours, GPU and CPU paths
+NDI_RUNTIME_DIR_V6=<NDI SDK>/lib/macOS scripts/test-ndi-macos.sh   # NDI: colours and A/V sync
 scripts/test-load-macos.sh hello   # plugin loading smoke test (hello only logs)
 build/macos/out/tools/syphon-probe --list   # list Syphon servers on this Mac
+build/macos/out/tools/ndi-probe --list      # list NDI sources on the network
 ```
+
+The NDI test needs the NDI runtime, installed or from the NDI SDK via `NDI_RUNTIME_DIR_V6`.
 
 ## Project structure
 
@@ -171,12 +191,13 @@ build/macos/out/tools/syphon-probe --list   # list Syphon servers on this Mac
 plugins/            one folder per VLC plugin, sources in src/
   hello/            test pass-through filter (not shipped)
   syphon/           Syphon filter (macOS)                    — works
-  ndi/              NDI video + audio filters                — Phase 2
+  ndi/              NDI video + audio filters                — works on macOS
   spout/            Spout filter (Windows)                   — Phase 4, help wanted
 shared/             code used by several plugins
   core/             protocol side, no VLC headers (frame description, ...)
   vlc3/             VLC 3.0.x adapter (VLC picture -> shared frame)
-tools/              developer test tools, sources in src/ (syphon-probe: Syphon test client)
+  ndi/              NDI runtime loader (plugin and ndi-probe)
+tools/              developer test tools, sources in src/ (syphon-probe, ndi-probe: test clients)
 apps/               the bundled macOS apps (VLCSyphon, VLCNDI): icons and packaging
 cmake/              CMake helpers (VLCPlugin.cmake), toolchains, build scripts
 scripts/            developer scripts (vendoring VLC headers, tests)

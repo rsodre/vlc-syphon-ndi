@@ -6,3 +6,7 @@
 if(APPLE AND VSN_BUILD_SYPHON)
   add_subdirectory(syphon-probe)
 endif()
+
+if(VSN_BUILD_NDI)
+  add_subdirectory(ndi-probe)
+endif()
