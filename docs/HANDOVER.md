@@ -1,7 +1,8 @@
 # Handover: from VLCSyphon fork to vlc-syphon-ndi
 
-Written 2026-11-05 at the end of a planning session held in the old repo.
-Nothing has been built yet; this document is the starting point.
+Written 2026-11-05 at the end of a planning session held in the old repo, then updated
+the same day with the maintainer's decisions and the Phase 0 result
+(see [Decisions (2026-11-05)](#decisions-2026-11-05) and [PHASE0.md](PHASE0.md)).
 
 ## Background
 
@@ -24,6 +25,36 @@ To see the whole Syphon change set in the old repo, run
 What's wrong with that design: Syphon works only with that one OpenGL video
 output, which VLC has since reworked, and every VLC upgrade means a manual rebase.
 **Use the old repo only as reference for the Syphon publishing logic. Don't copy it wholesale.**
+
+## Decisions (2026-11-05)
+
+These answer the earlier open questions and set the working rules.
+
+- **Platforms:** macOS (Syphon, NDI) first. Windows (including Spout) and Linux must stay
+  buildable so a contributor can pick them up: CMake presets and CI exist for all three.
+- **Deliverables:** two signed, notarized macOS apps built with the maintainer's Apple Developer
+  account and Apple's command-line tools:
+  - **VLCSyphon.app**: Syphon on by default. Orange inverted-cone icon from the legacy repo.
+  - **VLCNDI.app**: NDI on by default. Same icon, tinted NDI blue.
+  - Both contain **all** plugins. Users switch them the regular VLC way (Preferences ▸ Video ▸
+    Filters, or `--video-filter`).
+  - Plugin-only downloads for people who use the official VLC are likely too, but not decided
+    (see Open questions).
+- **Branding:** the maintainer keeps the "VLC…" names and the cone-derived icon, knowingly
+  accepting the trademark risk described under Licensing. Revisit if VideoLAN objects.
+- **Not a Node project.** No package.json or pnpm workspace. C/Objective-C with CMake.
+- **Repository layout:** each plugin in its own folder under `plugins/`; code used by more than
+  one plugin goes in `shared/`. Every project keeps its source code in its own `src/` folder.
+  See the README for the full tree.
+- **Third-party files** are committed under `third_party/` (the repo is public):
+  VLC 3.0.24 headers (LGPL), `Syphon.framework` (BSD), NDI SDK **headers only** (MIT).
+  The NDI runtime and the rest of the NDI SDK are never committed. Local copies of the
+  latest Syphon and NDI SDKs live in `~/Dev/apps/blendy-live/libs`.
+- **Legacy code:** don't keep code from VLCSyphon here. Reference it by name and URL:
+  [rsodre/VLCSyphon](https://github.com/rsodre/VLCSyphon) (branch `Syphon`). Only resources we
+  ship (icons) were copied.
+- **Process:** ask the maintainer before installing anything, and before any design or
+  architecture decision (with suggestions). The README is for humans: keep it current.
 
 ## Research findings (Nov 2026)
 
@@ -76,10 +107,15 @@ Two ways to ship:
    versions may block changes to other developers' apps. VLC disables library validation
    (hardened-runtime entitlements added in 2018), so a plugin signed with our Developer ID
    *should* load. Fallback: a launcher that sets `VLC_PLUGIN_PATH`.
-2. **Signed and notarized bundled app** with Syphon (and NDI) on by default:
+   **Phase 0 result:** on macOS 26, App Management protection blocks writing into
+   `/Applications/VLC.app` (`Operation not permitted`), and the plugin would break the seal anyway.
+   `VLC_PLUGIN_PATH` works with the untouched official app. See [PHASE0.md](PHASE0.md).
+2. **Signed and notarized bundled apps** (VLCSyphon.app and VLCNDI.app, see Decisions):
    - Build official VLC 3.0.24 plus a **one-line patch**: in `src/libvlc-module.c`, change
-     the `video-filter` default from `NULL` to `"syphon"` or `"syphon:ndi"`. This keeps the
-     user's own Preferences in control.
+     the `video-filter` default from `NULL` to `"syphon"` (VLCSyphon) or `"ndi"` (VLCNDI).
+     This keeps the user's own Preferences in control. Because the default is compiled into
+     libvlccore, the two apps need two libvlccore builds (everything else can be shared), or a
+     patch that reads the default from the bundle's Info.plist. Decide in Phase 3.
    - **Don't** inject arguments in `bin/darwinvlc.m`. Command-line arguments override user
      preferences, so users couldn't turn the filter off.
    - Build arm64 and x86_64 separately and merge with `lipo`.
@@ -87,8 +123,9 @@ Two ways to ship:
      (`extras/package/macosx/codesign.sh` is a starting point), then notarize with `notarytool`,
      staple, and package as a DMG.
    - Rebuild for each VLC security release. Automate this in GitHub Actions.
-   - Suggested defaults: Syphon on, NDI off or toggleable. NDI broadcasts everything to the LAN
-     and triggers a macOS firewall prompt.
+   - NDI broadcasts to the LAN and triggers a macOS firewall prompt, which is expected in VLCNDI.app.
+   - Each app needs its own bundle ID and its own VLC preferences folder, so the two apps and
+     an official VLC on the same Mac don't share settings. Check this in Phase 3.
 
 ## Licensing
 
@@ -98,8 +135,9 @@ Two ways to ship:
   Keep the Syphon BSD header only on files actually derived from Syphon's code.
 - **The bundled app as a whole** is GPLv2 because it includes VLC's GPL parts, such as the
   macOS interface. Publish the corresponding source for every release.
-- **Trademark:** don't call the bundled app "VLC" or use the cone logo. Use our own name and
-  icon, and describe it as "based on VLC".
+- **Trademark:** VideoLAN's policy discourages calling a modified build "VLC" or using the cone
+  logo. The maintainer chose to keep "VLCSyphon"/"VLCNDI" and the cone-derived icon anyway
+  (see Decisions). Describe the apps as "based on VLC" and don't imply VideoLAN endorsement.
 - **NDI:** the runtime is proprietary, so don't bundle it. Users install it themselves
   (DistroAV for OBS works the same way). Follow NDI's branding rules ("NDI®" attribution).
   Before shipping, confirm against the current NDI SDK license.
@@ -107,24 +145,26 @@ Two ways to ship:
 
 ## Plan / next steps
 
-- [ ] **Phase 0 – Feasibility test (go/no-go):** CMake project, "hello world" pass-through
-      video filter built against the VLC 3.0.24 headers. Test that it loads in the official signed
-      VLC.app on Apple Silicon, then on Windows.
+- [x] **Phase 0 – Feasibility test (go/no-go): GO on macOS.** CMake project, `hello` pass-through
+      filter built against vendored VLC 3.0.24 headers, loads in the official VLC.app via
+      `VLC_PLUGIN_PATH` and gets GPU (CVPX) frames. Details: [PHASE0.md](PHASE0.md).
+      - [ ] Windows load test (needs a Windows machine or contributor).
+      - [ ] Linux load test.
+      - [ ] Confirm the CI workflow passes on all three platforms after the first push.
 - [ ] **Phase 1 – Syphon filter (macOS):** Metal server, CVPX zero-copy path, CPU fallback, options
       (server name, enable).
 - [ ] **Phase 2 – NDI video + audio filters:** load the runtime at startup; show a clear message if
       it's missing.
-- [ ] **Phase 3 – Packaging:** plugin-only installer and/or bundled signed app (see Distribution),
-      plus a GitHub Actions workflow.
+- [ ] **Phase 3 – Packaging:** VLCSyphon.app and VLCNDI.app (signed, notarized, DMG), plugin-only
+      zips, and a GitHub Actions release workflow (see Distribution).
 - [ ] **Phase 4 – Spout (Windows).**
 - [ ] **Phase 5 – VLC 4 adapter** once 4.0 is stable.
 
 ### Open questions
 
-- macOS only first, or Windows in parallel?
-- Plugin-only distribution, bundled app, or both? This depends on the Phase 0 result.
-- Name for the bundled app.
-- NDI on or off by default.
+- Phase 3: two libvlccore builds, or one patched build that reads the default filter from Info.plist?
+- Phase 3: plugin-only macOS install: `VLC_PLUGIN_PATH` launcher, `.pkg` drop-in, or docs only?
+- Windows compiler: MinGW-w64 (VLC's own toolchain, CI uses it) or MSVC? Spout2 is MSVC-first.
 
 ## Sources
 
