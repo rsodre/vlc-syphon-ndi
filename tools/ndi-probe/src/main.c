@@ -138,13 +138,17 @@ int main(int argc, char **argv)
                     int x = px[i][0] < v.xres ? px[i][0] : v.xres - 1;
                     int y = px[i][1] < v.yres ? px[i][1] : v.yres - 1;
                     const uint8_t *q = p + (size_t)y * v.line_stride_in_bytes + (size_t)x * 4;
-                    printf("pixel %d,%d: r=%u g=%u b=%u\n", x, y, q[2], q[1], q[0]);
+                    printf("pixel %d,%d: r=%u g=%u b=%u a=%u\n", x, y, q[2], q[1], q[0], q[3]);
                 }
                 first_video_ts = v.timestamp;
                 if (seconds > 0)
                     stop = now_s() + seconds;
             }
             video_frames++;
+            // The first frame may be the sender's cached last frame (NDI sends it on
+            // connect), so the rate is measured from the second one.
+            if (video_frames == 2)
+                first_video_ts = v.timestamp;
             last_video_ts = v.timestamp;
             // Brightness of the centre pixel's green channel.
             const uint8_t *c = p + (size_t)(v.yres / 2) * v.line_stride_in_bytes + (size_t)(v.xres / 2) * 4;
@@ -191,9 +195,9 @@ int main(int argc, char **argv)
         printf("audio: %d Hz %d ch, %d frames, peak %.3f\n", rate, channels, audio_frames, peak);
     else
         printf("audio: none\n");
-    if (seconds > 0 && video_frames > 1)
+    if (seconds > 0 && video_frames > 2)
         printf("video rate: %.2f fps over %d frames\n",
-               (video_frames - 1) * 1e7 / (double)(last_video_ts - first_video_ts), video_frames);
+               (video_frames - 2) * 1e7 / (double)(last_video_ts - first_video_ts), video_frames);
     if (seconds > 0) {
         double sum = 0;
         int pairs = 0;

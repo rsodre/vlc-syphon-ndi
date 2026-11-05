@@ -33,10 +33,10 @@ This project replaces [VLCSyphon](https://github.com/rsodre/VLCSyphon), which wa
   video stays on the GPU; other video is uploaded from the CPU, which costs more for 4K.
 - **Syphon clients:** any Syphon-enabled app (Resolume, MadMapper, TouchDesigner, OBS with a Syphon
   plugin, …). Metal and OpenGL clients both work.
-- **NDI:** the free **NDI Runtime** must be installed ([macOS](http://ndi.link/NDIRedistV6Apple), [Windows](http://ndi.link/NDIRedistV6);
-  Linux: `libndi.so.6` from the [NDI SDK](https://ndi.video/for-developers/ndi-sdk/)). On macOS,
-  installing NDI Tools is not enough: its apps carry private copies. A wired network is
-  recommended for HD and above.
+- **NDI:** only the free **NDI Runtime** is required ([macOS](http://ndi.link/NDIRedistV6Apple), [Windows](http://ndi.link/NDIRedistV6);
+  Linux: `libndi.so.6` from the [NDI SDK](https://ndi.video/for-developers/ndi-sdk/)). NDI Tools is
+  not needed (its apps are handy for viewing the output, but they don't install the runtime).
+  A wired network is recommended for HD and above.
 
 ## Download
 
@@ -56,6 +56,17 @@ new versions from Releases.
 
 Install: open the DMG and drag the app to Applications. On first launch VLC asks its usual
 privacy question.
+
+While a plugin is enabled, its Syphon server or NDI source **stays up the whole time VLC is
+open**, even with nothing playing:
+
+| When | Syphon server / NDI source shows |
+|---|---|
+| VLC starts (filter enabled) | fully transparent, 1920×1080 |
+| A file plays | its video, at its resolution |
+| The file ends with Play and pause on | the last frame |
+| The file ends otherwise, the video window closes, or Stop | fully transparent at the last size |
+| VLC quits | the server / source goes away |
 
 Both apps start with **Play and pause** on: at the end of a file, VLC stops on the last frame
 instead of closing the video, so Syphon and NDI keep showing it. Change it in Preferences ▸
@@ -103,13 +114,16 @@ In **Preferences** ▸ **Show All** ▸ **Video** ▸ **Filters** ▸ **NDI**, o
 
 ### NDI needs the NDI Runtime
 
-The NDI plugin uses the free NDI Runtime, which you install yourself. It isn't included here.
+The NDI plugin needs only the free **NDI Runtime**, which you install yourself (it can't be
+included here):
 
-- **macOS:** install [libNDI for Mac](http://ndi.link/NDIRedistV6Apple) (`libNDI_for_Mac.pkg`, it puts
-  `libndi.dylib` in `/usr/local/lib`). **NDI Tools alone is not enough**: its apps keep their own
-  private copies of the runtime. Install NDI Tools as well if you want its monitor apps to view the output.
-- **Windows:** install the [NDI 6 Runtime](http://ndi.link/NDIRedistV6) (NDI Tools includes it).
-- **Linux:** install `libndi.so.6` from the NDI SDK into your library path.
+- **macOS:** [NDI Runtime for macOS](http://ndi.link/NDIRedistV6Apple) (`libNDI_for_Mac.pkg`, installs
+  `/usr/local/lib/libndi.dylib`).
+- **Windows:** [NDI 6 Runtime](http://ndi.link/NDIRedistV6).
+- **Linux:** `libndi.so.6` from the NDI SDK, in your library path.
+
+You don't need **NDI Tools**. Its apps (Studio Monitor, Video Monitor) are useful to view the
+output, but on macOS installing them does not install the runtime.
 
 Without it, VLC shows an error once and keeps playing without NDI. If the runtime is somewhere
 unusual, set `NDI_RUNTIME_DIR_V6` to its folder.
@@ -131,6 +145,10 @@ and unzip it.
 
 **macOS:** the zip contains `libsyphon_plugin.dylib`, the NDI plugin and `Syphon.framework`.
 Keep them together in one folder.
+
+To keep the server/source up while nothing plays (as the apps do), also tick **Syphon** and/or
+**NDI** in Preferences ▸ Show All ▸ Interface ▸ Control interfaces (or `--control=syphon:ndi`).
+Without that they start with the first video, and then stay up until VLC quits.
 
 - *Recommended:* leave VLC.app untouched and point VLC at the folder:
 

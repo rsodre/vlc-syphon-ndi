@@ -1,14 +1,23 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 // Copyright (C) 2026 Roger Sodre and vlc-syphon-ndi contributors
 //
-// "syphon": VLC 3 pass-through video filter that publishes every frame through a
-// Syphon server. VLC-side glue only; the Syphon/Metal work is in publisher.m.
+// "syphon": VLC 3 glue for the Syphon server. The Syphon/Metal work is in publisher.m.
 //
 //   vlc --video-filter=syphon movie.mp4
 //   vlc --video-filter='syphon{name=Stage Left}' movie.mp4
+//
+// One server per VLC process, kept running while VLC is open:
+//   - "syphon" control interface (Preferences > Interface > Control interfaces, or
+//     --control=syphon): when the syphon video filter is enabled, starts the server at
+//     launch, fully transparent at 1920x1080, before anything plays.
+//   - "syphon" video filter: publishes every frame (the server follows the video's size).
+//     When the video closes (end of file without Play and pause, window closed, stop),
+//     the server stays up, fully transparent at the last size.
+// Without the control interface, the server starts with the first video instead.
 
 #include <vsn/plugin.h>
 #include <vlc_filter.h>
+#include <vlc_interface.h>
 #include <vlc_picture.h>
 
 #include <vsn/vlc3.h>
@@ -23,8 +32,17 @@
 #define SQUARE_LONGTEXT N_("Scale video with non-square pixels (e.g. anamorphic DVDs) to its display aspect ratio. " \
                            "When off, frames are published at their stored size.")
 
-static int  Open(vlc_object_t *);
-static void Close(vlc_object_t *);
+// With no video, the server is fully transparent: 1920x1080 at launch, else the last size.
+#define IDLE_WIDTH 1920
+#define IDLE_HEIGHT 1080
+// Delay before going transparent, so VLC rebuilding the filter chain (next file,
+// filter changes) doesn't flash.
+#define CLEAR_DELAY_MS 300
+
+static int  OpenFilter(vlc_object_t *);
+static void CloseFilter(vlc_object_t *);
+static int  OpenIntf(vlc_object_t *);
+static void CloseIntf(vlc_object_t *);
 
 vlc_module_begin()
     set_shortname(N_("Syphon"))
@@ -35,17 +53,61 @@ vlc_module_begin()
     add_shortcut("syphon")
     add_string(CFG_PREFIX "name", "Video", NAME_TEXT, NAME_LONGTEXT, false)
     add_bool(CFG_PREFIX "square-pixels", true, SQUARE_TEXT, SQUARE_LONGTEXT, true)
-    set_callbacks(Open, Close)
+    set_callbacks(OpenFilter, CloseFilter)
+
+    add_submodule()
+    set_shortname(N_("Syphon"))
+    set_description(N_("Syphon server while VLC is open (when the Syphon video filter is enabled)"))
+    set_category(CAT_INTERFACE)
+    set_subcategory(SUBCAT_INTERFACE_CONTROL)
+    set_capability("interface", 0)
+    add_shortcut("syphon")
+    set_callbacks(OpenIntf, CloseIntf)
 vlc_module_end()
 
 static const char *const filter_options[] = { "name", "square-pixels", NULL };
 
+/* The process-wide server */
+
+static vlc_mutex_t server_lock = VLC_STATIC_MUTEX;
+static vsn_syphon *server;
+static char *server_name;
+static bool server_failed;  // creation failed once: don't retry on every frame
+static bool shutting_down;  // control interface closed: VLC is quitting
+
+// Returns the server, creating it or renaming it as needed. Call with server_lock held.
+static vsn_syphon *ServerGet(vlc_object_t *obj, const char *name)
+{
+    if (shutting_down || server_failed)
+        return server;
+    if (!name)
+        name = "";
+    if (!server) {
+        char err[256];
+        vsn_syphon_config cfg = { .name = name };
+        server = vsn_syphon_create(&cfg, err, sizeof(err));
+        if (!server) {
+            msg_Err(obj, "cannot start the Syphon server: %s", err);
+            server_failed = true;
+            return NULL;
+        }
+        server_name = strdup(name);
+        msg_Info(obj, "Syphon server \"%s\" started", name);
+    } else if (!server_name || strcmp(server_name, name)) {
+        vsn_syphon_set_name(server, name);
+        free(server_name);
+        server_name = strdup(name);
+    }
+    return server;
+}
+
+/* Video filter */
+
 struct filter_sys_t {
-    vsn_syphon *publisher;
     char *name;
     bool square_pixels;
-    bool failed;           // server creation failed: stay a plain pass-through
-    unsigned errors;       // publish errors, logged sparingly
+    bool published;   // this instance showed video: clear when it closes
+    unsigned errors;  // publish errors, logged sparingly
 };
 
 static void Publish(filter_t *filter, picture_t *pic)
@@ -53,32 +115,29 @@ static void Publish(filter_t *filter, picture_t *pic)
     filter_sys_t *sys = filter->p_sys;
     char err[256];
 
-    // Created on the first frame, not in Open: VLC opens and closes the filter while
-    // probing the chain, and a short-lived server would flash in clients' lists.
-    if (!sys->publisher && !sys->failed) {
-        vsn_syphon_config cfg = { .name = sys->name, .square_pixels = sys->square_pixels };
-        sys->publisher = vsn_syphon_create(&cfg, err, sizeof(err));
-        if (!sys->publisher) {
-            msg_Err(filter, "cannot start the Syphon server: %s", err);
-            sys->failed = true;
-            return;
-        }
-        msg_Info(filter, "Syphon server \"%s\" started", sys->name ? sys->name : "");
-    }
-    if (!sys->publisher || !vsn_syphon_has_clients(sys->publisher))
+    vlc_mutex_lock(&server_lock);
+    vsn_syphon *s = ServerGet(VLC_OBJECT(filter), sys->name);
+    if (!s || !vsn_syphon_has_clients(s)) {
+        // Nobody watching: skip the conversion, but remember we're showing video so
+        // a later client doesn't see an earlier idle frame as "current".
+        sys->published = sys->published || s != NULL;
+        vlc_mutex_unlock(&server_lock);
         return;
+    }
 
     vsn_frame frame;
-    if (!vsn_vlc3_frame_from_picture(&filter->fmt_in.video, pic, &frame)) {
-        if (sys->errors++ == 0)
-            msg_Warn(filter, "cannot describe picture %4.4s", (const char *)&filter->fmt_in.video.i_chroma);
-        return;
-    }
-    if (!vsn_syphon_publish(sys->publisher, &frame, err, sizeof(err))) {
-        // First error, then every 300th, so a persistent problem doesn't flood the log.
-        if (sys->errors++ % 300 == 0)
-            msg_Warn(filter, "cannot publish frame (%u errors): %s", sys->errors, err);
-    }
+    bool ok = vsn_vlc3_frame_from_picture(&filter->fmt_in.video, pic, &frame);
+    if (!ok)
+        snprintf(err, sizeof(err), "cannot describe picture %4.4s",
+                 (const char *)&filter->fmt_in.video.i_chroma);
+    else
+        ok = vsn_syphon_publish(s, &frame, sys->square_pixels, err, sizeof(err));
+    sys->published = true;
+    vlc_mutex_unlock(&server_lock);
+
+    // First error, then every 300th, so a persistent problem doesn't flood the log.
+    if (!ok && sys->errors++ % 300 == 0)
+        msg_Warn(filter, "cannot publish frame (%u errors): %s", sys->errors, err);
 }
 
 static picture_t *Filter(filter_t *filter, picture_t *pic)
@@ -88,7 +147,7 @@ static picture_t *Filter(filter_t *filter, picture_t *pic)
     return pic;
 }
 
-static int Open(vlc_object_t *obj)
+static int OpenFilter(vlc_object_t *obj)
 {
     filter_t *filter = (filter_t *)obj;
     const video_format_t *fmt = &filter->fmt_in.video;
@@ -116,12 +175,53 @@ static int Open(vlc_object_t *obj)
     return VLC_SUCCESS;
 }
 
-static void Close(vlc_object_t *obj)
+static void CloseFilter(vlc_object_t *obj)
 {
     filter_t *filter = (filter_t *)obj;
     filter_sys_t *sys = filter->p_sys;
 
-    vsn_syphon_destroy(sys->publisher);
+    // The video is gone: keep the server, fully transparent at the same size.
+    vlc_mutex_lock(&server_lock);
+    if (sys->published && server && !shutting_down)
+        vsn_syphon_clear_later(server, CLEAR_DELAY_MS, 0, 0, 0, 0);
+    vlc_mutex_unlock(&server_lock);
+
     free(sys->name);
     free(sys);
+}
+
+/* Control interface: the server while VLC is open */
+
+static int OpenIntf(vlc_object_t *obj)
+{
+    char *filters = var_InheritString(obj, "video-filter");
+    bool enabled = vsn_vlc3_list_has(filters, "syphon");
+    free(filters);
+    if (!enabled) {
+        msg_Dbg(obj, "Syphon video filter not enabled, no server at startup");
+        return VLC_SUCCESS;  // stay loaded, harmlessly: the setting may be shared by apps
+    }
+
+    char *name = var_InheritString(obj, CFG_PREFIX "name");
+    vlc_mutex_lock(&server_lock);
+    shutting_down = false;
+    vsn_syphon *s = ServerGet(obj, name);
+    if (s)
+        vsn_syphon_publish_color(s, IDLE_WIDTH, IDLE_HEIGHT, 0, 0, 0, 0);
+    vlc_mutex_unlock(&server_lock);
+    free(name);
+    return VLC_SUCCESS;
+}
+
+static void CloseIntf(vlc_object_t *obj)
+{
+    (void)obj;
+    // VLC is quitting: stop the server now, and don't let late video frames restart it.
+    vlc_mutex_lock(&server_lock);
+    shutting_down = true;
+    vsn_syphon_destroy(server);
+    server = NULL;
+    free(server_name);
+    server_name = NULL;
+    vlc_mutex_unlock(&server_lock);
 }

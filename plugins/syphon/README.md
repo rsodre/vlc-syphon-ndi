@@ -12,6 +12,24 @@ VLC keeps playing normally. Module name `syphon`.
 
 Per-filter syntax also works: `--video-filter='syphon{name=Stage Left}'`.
 
+## Lifetime
+
+There is one server per VLC process, and it stays up while VLC is open:
+
+| When | The server shows |
+|---|---|
+| VLC starts (filter enabled) | fully transparent, 1920×1080 |
+| A file plays | its video, at its resolution |
+| The file ends with Play and pause on | the last frame |
+| The file ends otherwise, the video window closes, or Stop | fully transparent at the last size |
+| VLC quits | the server goes away |
+
+Starting at launch needs the plugin's **control interface** (module `syphon`, capability
+`interface`): Preferences ▸ Interface ▸ Control interfaces ▸ Syphon, or `--control=syphon`. It does
+nothing unless the Syphon video filter is enabled. Without it, the server starts with the first
+video. The apps turn it on (`control=syphon:ndi`). The switch to transparent waits 300 ms, so
+VLC rebuilding the filter chain between files doesn't flash.
+
 ## How it works
 
 ```

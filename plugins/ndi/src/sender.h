@@ -53,6 +53,27 @@ bool vsn_ndi_sender_video(vsn_ndi_sender *s, const vsn_frame *frame, int64_t del
 bool vsn_ndi_sender_audio(vsn_ndi_sender *s, const float *samples, unsigned channels,
                           unsigned frames, unsigned rate, int64_t delay_us);
 
+/**
+ * Sends a solid colour frame now (straight alpha; 255 = opaque). width/height 0 means
+ * the size of the last video frame (1920x1080 before any). Replaces a pending idle frame.
+ */
+void vsn_ndi_sender_color(vsn_ndi_sender *s, unsigned width, unsigned height,
+                          uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+
+/**
+ * Sends a fully transparent frame at the last video size after delay_ms, unless video comes
+ * first. Used when video stops, so a quick restart doesn't flash.
+ */
+void vsn_ndi_sender_clear_later(vsn_ndi_sender *s, unsigned delay_ms);
+
+/*
+ * Whatever video frame was sent last is sent again every second while nothing new comes,
+ * because NDI receivers only get frames sent after they connect.
+ */
+
+/** Records the current video size (for idle frames) even when no frame is sent. */
+void vsn_ndi_sender_set_size(vsn_ndi_sender *s, unsigned width, unsigned height);
+
 /** Drops queued frames (after a seek). */
 void vsn_ndi_sender_flush(vsn_ndi_sender *s, bool video, bool audio);
 

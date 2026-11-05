@@ -30,7 +30,9 @@ Versions follow VLC: `3.0.24 (3.0.24.N)`, released as tag `v3.0.24-N`.
    bundle's executable. On first launch only, it writes the app's `vlcrc` with the filters
    named in the Info.plist keys `VSNDefaultVideoFilter` / `VSNDefaultAudioFilter` and the
    `option=value` lines in `VSNDefaultCoreOptions` (both apps: `play-and-pause=1`, which stops on
-   the last frame at the end of a file so the window, Syphon and NDI keep it), then
+   the last frame at the end of a file so the window, Syphon and NDI keep it; and
+   `control=syphon:ndi`, which starts the Syphon server / NDI source with the app when their
+   filter is enabled), then
    `exec`s VLC's own executable. After that they are ordinary preferences. No command-line
    options are injected, so the user's choices always win.
    Note: VLC's "Reset Preferences" writes VLC's own defaults, so the filter is off afterwards.

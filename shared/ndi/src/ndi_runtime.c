@@ -109,14 +109,16 @@ const NDIlib_v6 *vsn_ndi_load(char *err, size_t err_size)
 
     if (!lib) {
         if (err)
-            snprintf(err, err_size, "NDI 6 Runtime not found (tried: %s). Install the NDI Runtime "
-                     "from %s%s", tried, vsn_ndi_runtime_url(),
-#ifdef __APPLE__
-                     " (NDI Tools alone is not enough: its apps keep private copies of the runtime)."
+            snprintf(err, err_size, "NDI Runtime not found. Install %s from %s, then restart. "
+                     "(Searched: %s)",
+#if defined(__APPLE__)
+                     "the NDI Runtime for macOS (libNDI_for_Mac.pkg)",
+#elif defined(_WIN32)
+                     "the NDI 6 Runtime",
 #else
-                     "."
+                     "libndi.so.6 from the NDI SDK",
 #endif
-                     );
+                     vsn_ndi_runtime_url(), tried);
     } else if (!lib->initialize()) {
         if (err)
             snprintf(err, err_size, "NDI runtime at %s failed to initialize (unsupported CPU?)", path);

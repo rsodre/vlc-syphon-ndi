@@ -23,6 +23,25 @@ static void *cvpx_from_picture(const picture_t *pic)
 }
 #endif
 
+bool vsn_vlc3_list_has(const char *list, const char *module)
+{
+    size_t len = strlen(module);
+    for (const char *p = list; p && *p; ) {
+        while (*p == ':' || *p == ',' || *p == ' ')
+            p++;
+        // A match must end the item, or be followed by its {options}.
+        if (!strncmp(p, module, len) && (p[len] == '\0' || p[len] == ':' || p[len] == ','
+                                          || p[len] == '{' || p[len] == ' '))
+            return true;
+        int depth = 0;  // skip to the next item, ignoring separators inside {...}
+        for (; *p && (depth || (*p != ':' && *p != ',')); p++) {
+            if (*p == '{') depth++;
+            else if (*p == '}' && depth) depth--;
+        }
+    }
+    return false;
+}
+
 bool vsn_vlc3_chroma(vlc_fourcc_t chroma, vsn_pixfmt *pixfmt, vsn_memory *memory)
 {
     vsn_memory mem = VSN_MEMORY_CPU;

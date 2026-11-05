@@ -25,4 +25,10 @@ bool vsn_vlc3_chroma(vlc_fourcc_t chroma, vsn_pixfmt *pixfmt, vsn_memory *memory
 bool vsn_vlc3_frame_from_picture(const video_format_t *fmt, const picture_t *pic,
                                  vsn_frame *out);
 
+/**
+ * True if a VLC module list ("a:b{opt=1}:c", as in --video-filter) names module.
+ * NULL or empty lists contain nothing.
+ */
+bool vsn_vlc3_list_has(const char *list, const char *module);
+
 #endif

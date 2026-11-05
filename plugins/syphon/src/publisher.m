@@ -148,6 +148,11 @@ bool vsn_syphon_supports(vsn_pixfmt pixfmt, vsn_memory memory)
     id<MTLCommandBuffer> _lastCommandBuffer;
     bool _squarePixels;
 
+    NSLock *_lock;             // serialises the C API (several VLC threads use one server)
+    uint64_t _generation;      // bumped by every publish; a pending clear checks it
+    unsigned _lastW, _lastH;   // size of the last published frame
+    dispatch_queue_t _timers;
+
     // CPU upload ring
     NSArray<id<MTLTexture>> *_upload[VSN_INFLIGHT];
     unsigned _uploadSlot;
@@ -165,7 +170,10 @@ bool vsn_syphon_supports(vsn_pixfmt pixfmt, vsn_memory memory)
     }
     _queue = [_device newCommandQueue];
     _inflight = dispatch_semaphore_create(VSN_INFLIGHT);
-    _squarePixels = cfg->square_pixels;
+    _lock = [NSLock new];
+    _lastW = 1920;
+    _lastH = 1080;
+    _timers = dispatch_queue_create("vsn.syphon.timers", DISPATCH_QUEUE_SERIAL);
 
     NSError *err = nil;
     id<MTLLibrary> lib = [_device newLibraryWithSource:@(vsn_shader_source) options:nil error:&err];
@@ -317,8 +325,36 @@ static bool cvpx_layout(OSType type, vsn_pixfmt *fmt, bool *full_range)
     return ok;
 }
 
+- (void)publishColorWidth:(unsigned)w height:(unsigned)h rgba:(const float *)c
+{
+    _generation++;
+    if (!w || !h) {
+        w = _lastW;
+        h = _lastH;
+    }
+    dispatch_semaphore_wait(_inflight, DISPATCH_TIME_FOREVER);
+    id<MTLTexture> output = [self outputWithWidth:w height:h];
+    MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+    pass.colorAttachments[0].texture = output;
+    pass.colorAttachments[0].loadAction = MTLLoadActionClear;
+    pass.colorAttachments[0].clearColor = MTLClearColorMake(c[0], c[1], c[2], c[3]);
+    pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+
+    id<MTLCommandBuffer> cb = [_queue commandBuffer];
+    [[cb renderCommandEncoderWithDescriptor:pass] endEncoding];
+    [_server publishFrameTexture:output onCommandBuffer:cb
+                     imageRegion:NSMakeRect(0, 0, w, h) flipped:NO];
+    dispatch_semaphore_t inflight = _inflight;
+    [cb addCompletedHandler:^(id<MTLCommandBuffer> done) { dispatch_semaphore_signal(inflight); }];
+    [cb commit];
+    _lastCommandBuffer = cb;
+    _lastW = w;
+    _lastH = h;
+}
+
 - (BOOL)publish:(const vsn_frame *)frame error:(NSString **)error
 {
+    _generation++;
     vsn_frame f = *frame;
     unsigned srcW = f.width, srcH = f.height;  // full source texture size, for the crop
     CVPixelBufferRef pb = NULL;
@@ -422,6 +458,8 @@ static bool cvpx_layout(OSType type, vsn_pixfmt *fmt, bool *full_range)
     }];
     [cb commit];
     _lastCommandBuffer = cb;
+    _lastW = outW;
+    _lastH = outH;
     // Let the cache drop textures for pixel buffers VLC has recycled.
     if (pb)
         CVMetalTextureCacheFlush(_textureCache, 0);
@@ -461,15 +499,64 @@ bool vsn_syphon_has_clients(vsn_syphon *s)
     return p->_server.hasClients;
 }
 
-bool vsn_syphon_publish(vsn_syphon *s, const vsn_frame *frame, char *err, size_t err_size)
+bool vsn_syphon_publish(vsn_syphon *s, const vsn_frame *frame, bool square_pixels,
+                        char *err, size_t err_size)
 {
     @autoreleasepool {
         VSNSyphonPublisher *p = (__bridge VSNSyphonPublisher *)s->publisher;
         NSString *error = nil;
-        if ([p publish:frame error:&error])
+        [p->_lock lock];
+        p->_squarePixels = square_pixels;
+        BOOL ok = [p publish:frame error:&error];
+        [p->_lock unlock];
+        if (ok)
             return true;
         set_err(err, err_size, "%s", error.UTF8String ?: "unknown error");
         return false;
+    }
+}
+
+void vsn_syphon_publish_color(vsn_syphon *s, unsigned width, unsigned height,
+                              float r, float g, float b, float a)
+{
+    @autoreleasepool {
+        VSNSyphonPublisher *p = (__bridge VSNSyphonPublisher *)s->publisher;
+        const float c[4] = { r, g, b, a };
+        [p->_lock lock];
+        [p publishColorWidth:width height:height rgba:c];
+        [p->_lock unlock];
+    }
+}
+
+void vsn_syphon_clear_later(vsn_syphon *s, unsigned delay_ms, float r, float g, float b, float a)
+{
+    VSNSyphonPublisher *p = (__bridge VSNSyphonPublisher *)s->publisher;
+    [p->_lock lock];
+    uint64_t generation = ++p->_generation;
+    [p->_lock unlock];
+
+    __weak VSNSyphonPublisher *weak = p;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)delay_ms * NSEC_PER_MSEC), p->_timers, ^{
+        VSNSyphonPublisher *strong = weak;  // nil once the server is destroyed
+        if (!strong)
+            return;
+        @autoreleasepool {
+            const float c[4] = { r, g, b, a };
+            [strong->_lock lock];
+            if (strong->_generation == generation)  // nothing published since
+                [strong publishColorWidth:0 height:0 rgba:c];
+            [strong->_lock unlock];
+        }
+    });
+}
+
+void vsn_syphon_set_name(vsn_syphon *s, const char *name)
+{
+    @autoreleasepool {
+        VSNSyphonPublisher *p = (__bridge VSNSyphonPublisher *)s->publisher;
+        [p->_lock lock];
+        p->_server.name = (name && *name) ? @(name) : nil;
+        [p->_lock unlock];
     }
 }
 

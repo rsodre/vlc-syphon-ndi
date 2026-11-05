@@ -20,20 +20,40 @@ for a silent source, or only the audio filter for an audio-only source.
 Per-filter syntax also works: `--video-filter='ndi{name=Screen 2}'`. Give both filters the
 same name (`--ndi-name` sets it for both).
 
+## Lifetime
+
+The NDI source stays up while VLC is open:
+
+| When | The source sends |
+|---|---|
+| VLC starts (filter enabled) | fully transparent, 1920×1080 |
+| A file plays | its video, at its resolution |
+| The file ends with Play and pause on | the last frame |
+| The file ends otherwise, the video window closes, or Stop | fully transparent at the last size |
+| VLC quits | the source goes away |
+
+- Starting at launch needs the control interface `ndi` (Preferences ▸ Interface ▸ Control
+  interfaces ▸ NDI, or `--control=ndi`). It does nothing unless an NDI filter is enabled.
+- NDI receivers only get frames sent after they connect, so the last video frame is sent again
+  once a second while nothing new comes (idle, paused, held last frame). While no receiver is
+  connected, one real frame a second is still sent, because NDI gives a new receiver the last
+  frame sent.
+
 ## NDI runtime
 
-The NDI runtime is proprietary, so it is never bundled. Users install it: on macOS
-[libNDI for Mac](http://ndi.link/NDIRedistV6Apple) (NDI Tools for Mac does **not** install a shared runtime; each of
-its apps embeds a private copy), on Windows the [NDI 6 Runtime](http://ndi.link/NDIRedistV6). The plugin loads it on
-the first frame, from:
+The NDI runtime is proprietary, so it is never bundled. Users install only the runtime: on
+macOS the [NDI Runtime for macOS](http://ndi.link/NDIRedistV6Apple) (`libNDI_for_Mac.pkg`), on Windows the
+[NDI 6 Runtime](http://ndi.link/NDIRedistV6). NDI Tools is not needed (on macOS its apps embed private
+copies and install no shared runtime). The plugin loads the runtime from:
 
 1. `$NDI_RUNTIME_DIR_V6/` (set by the Windows installer; handy for testing with an SDK copy)
 2. macOS: `/usr/local/lib/libndi.dylib`, `/Library/NDI SDK for Apple/lib/macOS/`;
    Linux: `libndi.so.6` on the library path, `/usr/local/lib`, `/usr/lib`;
    Windows: `Processing.NDI.Lib.x64.dll` on the DLL search path
 
-If it isn't found, VLC shows an error once ("NDI 6 Runtime not found … Install the NDI Runtime
-from <NDI's link for the platform>") and keeps playing without NDI.
+If it isn't found, VLC shows an error once ("NDI Runtime not found. Install the NDI Runtime for
+macOS (libNDI_for_Mac.pkg) from http://ndi.link/NDIRedistV6Apple, then restart.", naming the right
+package on each platform) and keeps playing without NDI.
 
 ## How it works
 

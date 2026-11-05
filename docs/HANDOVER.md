@@ -47,10 +47,17 @@ These answer the earlier open questions and set the working rules.
     has its own settings without any patch. Versions are `3.0.24 (3.0.24.N)`, and tags are `v3.0.24-N`.
 - **Windows toolchain: MinGW-w64** (llvm-mingw or MSYS2), the same as VLC's own Windows builds.
   VLC's headers assume GCC/Clang. Spout2's DirectX 11 sender code builds with MinGW too.
-- **NDI runtime on macOS:** NDI Tools for Mac does not install a shared runtime (each app embeds
-  `libndi` privately). Users need `libNDI_for_Mac.pkg` (http://ndi.link/NDIRedistV6Apple), which installs
-  `/usr/local/lib/libndi.dylib`. Error messages and docs point there. Loading the copy inside
+- **NDI runtime:** users need **only** the NDI Runtime (macOS: `libNDI_for_Mac.pkg` from
+  http://ndi.link/NDIRedistV6Apple, installs `/usr/local/lib/libndi.dylib`). NDI Tools is not
+  needed: on macOS its apps embed private copies and install no shared runtime. Error messages
+  and docs say so. Loading the copy inside
   an NDI Tools app was considered and not done: it's another app's private file.
+- **Always-on outputs (maintainer's spec):** while a plugin is enabled, its Syphon server / NDI
+  source stays up as long as VLC is open. No video means fully transparent: 1920×1080 at launch,
+  the last size after a video closes. Playing: the video at its size. End with Play and pause: last frame.
+  Filters only exist while a video does, so the launch part is a **control interface** submodule
+  in each plugin (`--control=syphon:ndi`, seeded by the apps). It's inert unless its filter is enabled.
+  NDI repeats the last frame once a second when idle, because receivers only get frames sent after they connect.
 - **NDI colours:** the NDI 6.3.2 SDK receiver decodes every resolution as BT.709 limited range,
   although NDI's docs say BT.601 for SD. The sender normalises to BT.709 by default
   (`--ndi-bt709`, can be turned off).

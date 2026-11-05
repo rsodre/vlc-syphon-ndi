@@ -16,12 +16,18 @@
 #define MAX_QUEUED_AUDIO 400
 // Frames more than this far in the future are treated as a clock jump and sent now.
 #define MAX_DELAY_US 5000000
+// NDI receivers only get frames sent after they connect, so when no new video comes
+// (idle, paused, held last frame) the last video frame is sent again this often.
+#define REPEAT_US 1000000
+#define IDLE_WIDTH 1920
+#define IDLE_HEIGHT 1080
 
 typedef enum { ITEM_VIDEO, ITEM_AUDIO } item_kind;
 
 typedef struct item {
     struct item *next;
     item_kind kind;
+    bool idle;            // solid idle/clear frame: replaced by any newer video
     int64_t deadline_us;  // monotonic clock
     union {
         NDIlib_video_frame_v2_t video;
@@ -44,6 +50,7 @@ struct vsn_ndi_sender {
     bool quit;
     item *head;                   // sorted by deadline
     unsigned queued[2];           // per item_kind
+    unsigned last_w, last_h;      // size of the last queued video frame
 };
 
 static pthread_mutex_t registry_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -75,11 +82,23 @@ static void *worker(void *opaque)
 {
     vsn_ndi_sender *s = opaque;
 
+    item *last = NULL;            // last video frame sent, repeated while nothing new comes
+    int64_t last_sent = 0;
+
     pthread_mutex_lock(&s->lock);
     while (!s->quit) {
         item *it = s->head;
         if (!it) {
-            pthread_cond_wait(&s->wake, &s->lock);
+            if (!last) {
+                pthread_cond_wait(&s->wake, &s->lock);
+            } else if (mono_us() < last_sent + REPEAT_US) {
+                wait_until(s, last_sent + REPEAT_US);  // may wake early for new frames
+            } else {
+                pthread_mutex_unlock(&s->lock);
+                s->ndi->send_send_video_v2(s->instance, &last->video);
+                last_sent = mono_us();
+                pthread_mutex_lock(&s->lock);
+            }
             continue;
         }
         if (it->deadline_us > mono_us() + 500) {
@@ -91,16 +110,37 @@ static void *worker(void *opaque)
         pthread_mutex_unlock(&s->lock);
 
         // Both calls copy the data before returning.
-        if (it->kind == ITEM_VIDEO)
+        if (it->kind == ITEM_VIDEO) {
             s->ndi->send_send_video_v2(s->instance, &it->video);
-        else
+            free(last);
+            last = it;  // kept for repeats
+            last_sent = mono_us();
+        } else {
             s->ndi->util_send_send_audio_interleaved_32f(s->instance, &it->audio);
-        free(it);
+            free(it);
+        }
 
         pthread_mutex_lock(&s->lock);
     }
     pthread_mutex_unlock(&s->lock);
+    free(last);
     return NULL;
+}
+
+// Drops queued idle frames (a newer frame replaces them). Call with s->lock held.
+static void drop_idle(vsn_ndi_sender *s)
+{
+    item **pp = &s->head;
+    while (*pp) {
+        item *it = *pp;
+        if (it->idle) {
+            *pp = it->next;
+            s->queued[it->kind]--;
+            free(it);
+        } else {
+            pp = &it->next;
+        }
+    }
 }
 
 static void drop_items(vsn_ndi_sender *s, bool video, bool audio)
@@ -125,6 +165,13 @@ static bool enqueue(vsn_ndi_sender *s, item *it, int64_t delay_us)
     it->deadline_us = mono_us() + delay_us;
 
     pthread_mutex_lock(&s->lock);
+    if (it->kind == ITEM_VIDEO) {
+        drop_idle(s);  // video, or a newer idle frame, replaces a pending idle frame
+        if (!it->idle) {
+            s->last_w = (unsigned)it->video.xres;
+            s->last_h = (unsigned)it->video.yres;
+        }
+    }
     unsigned limit = it->kind == ITEM_VIDEO ? MAX_QUEUED_VIDEO : MAX_QUEUED_AUDIO;
     if (s->queued[it->kind] >= limit) {
         pthread_mutex_unlock(&s->lock);
@@ -441,6 +488,7 @@ bool vsn_ndi_sender_video(vsn_ndi_sender *s, const vsn_frame *f, int64_t delay_u
         return false;
     }
     it->kind = ITEM_VIDEO;
+    it->idle = false;
 
     size_t w = f->width, h = f->height, cw = (w + 1) / 2, ch = (h + 1) / 2;
     uint8_t *y = it->data;
@@ -514,6 +562,7 @@ bool vsn_ndi_sender_audio(vsn_ndi_sender *s, const float *samples, unsigned chan
     if (!it)
         return false;
     it->kind = ITEM_AUDIO;
+    it->idle = false;
     memcpy(it->data, samples, bytes);
     it->audio = (NDIlib_audio_frame_interleaved_32f_t){
         .sample_rate = (int)rate,
@@ -523,4 +572,61 @@ bool vsn_ndi_sender_audio(vsn_ndi_sender *s, const float *samples, unsigned chan
         .p_data = (float *)it->data,
     };
     return enqueue(s, it, delay_us);
+}
+
+// ---- Idle frames
+
+void vsn_ndi_sender_set_size(vsn_ndi_sender *s, unsigned width, unsigned height)
+{
+    pthread_mutex_lock(&s->lock);
+    s->last_w = width;
+    s->last_h = height;
+    pthread_mutex_unlock(&s->lock);
+}
+
+static bool queue_solid(vsn_ndi_sender *s, unsigned w, unsigned h, uint8_t r, uint8_t g,
+                        uint8_t b, uint8_t a, int64_t delay_us)
+{
+    if (!w || !h) {
+        pthread_mutex_lock(&s->lock);
+        w = s->last_w ? s->last_w : IDLE_WIDTH;
+        h = s->last_h ? s->last_h : IDLE_HEIGHT;
+        pthread_mutex_unlock(&s->lock);
+    }
+    size_t bytes = (size_t)w * h * 4;
+    item *it = malloc(sizeof(*it) + bytes);
+    if (!it)
+        return false;
+    it->kind = ITEM_VIDEO;
+    it->idle = true;
+    for (size_t i = 0; i < bytes; i += 4) {
+        it->data[i] = b;
+        it->data[i + 1] = g;
+        it->data[i + 2] = r;
+        it->data[i + 3] = a;
+    }
+    it->video = (NDIlib_video_frame_v2_t){
+        .xres = (int)w,
+        .yres = (int)h,
+        .FourCC = a == 255 ? NDIlib_FourCC_video_type_BGRX : NDIlib_FourCC_video_type_BGRA,
+        .frame_rate_N = 30000,
+        .frame_rate_D = 1001,
+        .picture_aspect_ratio = (float)w / (float)h,
+        .frame_format_type = NDIlib_frame_format_type_progressive,
+        .timecode = NDIlib_send_timecode_synthesize,
+        .p_data = it->data,
+        .line_stride_in_bytes = (int)(4 * w),
+    };
+    return enqueue(s, it, delay_us);
+}
+
+void vsn_ndi_sender_color(vsn_ndi_sender *s, unsigned width, unsigned height,
+                          uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+    queue_solid(s, width, height, r, g, b, a, 0);
+}
+
+void vsn_ndi_sender_clear_later(vsn_ndi_sender *s, unsigned delay_ms)
+{
+    queue_solid(s, 0, 0, 0, 0, 0, 0, (int64_t)delay_ms * 1000);
 }
