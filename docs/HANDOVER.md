@@ -40,8 +40,11 @@ These answer the earlier open questions and set the working rules.
     Filters, or `--video-filter`).
   - Published as **GitHub Releases**: both apps (DMGs) plus plugin zips per platform. Plugin users
     follow the usual VLC plugin instructions in the README (on macOS, `VLC_PLUGIN_PATH` is recommended).
-  - The default filter comes from a small VLC patch that reads it from the app's **Info.plist**
-    (one VLC build for both apps), not from two libvlccore builds.
+  - **Superseded in Phase 3:** the apps are the official VLC.app repackaged, not built from
+    source. A small launcher reads the default filters from the app's **Info.plist** and seeds
+    them on first launch (see apps/README.md). The bundle IDs are `com.studioavante.vlcsyphon`
+    and `com.studioavante.vlcndi`. VLC 3 names its settings folders after the bundle ID, so each app
+    has its own settings without any patch. Versions are `3.0.24 (3.0.24.N)`, and tags are `v3.0.24-N`.
 - **Windows toolchain: MinGW-w64** (llvm-mingw or MSYS2), the same as VLC's own Windows builds.
   VLC's headers assume GCC/Clang. Spout2's DirectX 11 sender code builds with MinGW too.
 - **NDI colours:** the NDI 6.3.2 SDK receiver decodes every resolution as BT.709 limited range,
@@ -121,7 +124,10 @@ Two ways to ship:
    **Phase 0 result:** on macOS 26, App Management protection blocks writing into
    `/Applications/VLC.app` (`Operation not permitted`), and the plugin would break the seal anyway.
    `VLC_PLUGIN_PATH` works with the untouched official app. See [PHASE0.md](PHASE0.md).
-2. **Signed and notarized bundled apps** (VLCSyphon.app and VLCNDI.app, see Decisions):
+2. **Signed and notarized bundled apps** (VLCSyphon.app and VLCNDI.app, see Decisions).
+   *Phase 3 replaced the build-from-source plan below with repackaging the official app
+   (apps/README.md). VideoLAN has no prebuilt 3.0 contribs for Apple Silicon, so a source
+   build means ~70 libraries compiled per architecture with Xcode 27. The plan is kept for reference:*
    - Build official VLC 3.0.24 plus a **one-line patch**: in `src/libvlc-module.c`, change
      the `video-filter` default from `NULL` to `"syphon"` (VLCSyphon) or `"ndi"` (VLCNDI).
      This keeps the user's own Preferences in control. **Decided:** one VLC build for both apps,
@@ -173,7 +179,17 @@ Two ways to ship:
       (7 cases). Details: [plugins/ndi/README.md](../plugins/ndi/README.md).
       - [ ] Run on Windows and Linux (contributors).
       - [ ] Test with a real audio output and with third-party receivers (OBS/DistroAV, vMix, NDI Studio Monitor).
-- [ ] **Phase 3 – Packaging:** (notes: VLCNDI.app must default both `video-filter` and
+- [x] **Phase 3 – Packaging (macOS):** official VLC 3.0.24 universal repackaged into
+      VLCSyphon.app / VLCNDI.app (launcher seeds default filters; per-app settings; Breakpad
+      and Sparkle disconnected; plugin cache rebuilt; re-signed). Both apps tested by launching
+      them with a file: Syphon frames correct, NDI picture + sound with +6 ms A/V offset through the
+      real audio output. DMGs, plugin zip, VLC source and checksums from
+      `apps/scripts/release-macos.sh`; GitHub Actions `release.yml` on `v*` tags.
+      - [ ] Developer ID certificate + notarytool profile (maintainer), then the first signed
+            release and notarization run.
+      - [ ] Repository secrets for `release.yml`.
+      - [ ] Manual checklist: docs/TESTING-APPS.md.
+      (Original notes: VLCNDI.app must default both `video-filter` and
       `audio-filter` to `ndi`; keep VLC's `disable-library-validation` entitlement, which is what lets
       the NDI runtime from `/usr/local/lib` load; add `NSLocalNetworkUsageDescription` to Info.plist) VLCSyphon.app and VLCNDI.app (signed, notarized, DMG), plugin-only
       zips, and a GitHub Actions release workflow (see Distribution).
@@ -182,7 +198,6 @@ Two ways to ship:
 
 ### Open questions
 
-- Phase 3: the exact Info.plist key name and how VLCSyphon/VLCNDI keep separate preference folders.
 - Phase 3: list the project on addons.videolan.org?
 
 ## Sources

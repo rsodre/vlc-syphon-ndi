@@ -17,11 +17,13 @@ decisions, phased to-do list), then `docs/PHASE0.md` (feasibility results).
 - Universal macOS binaries (arm64 + x86_64), minimum macOS 11.0 (same as official VLC).
   The NDI 6 runtime needs macOS 13. Keep the README's Requirements table current.
 - Windows toolchain: MinGW-w64. Releases: GitHub Releases (two apps + plugin zips).
-  Default filter in each app: read from Info.plist by a small VLC patch.
+- The apps are the **official VLC.app repackaged**, with no VLC code changed or compiled.
+  The apps/launcher seeds default filters from Info.plist (`VSNDefault{Video,Audio}Filter`) on
+  first launch. Bundle IDs are `com.studioavante.*`, and versions are `<vlc>-<build>` (tag `v3.0.24-1`).
 - Not a Node project: C/Objective-C with CMake (presets: `macos`, `linux`, `windows-mingw`).
 - Deliverables: `VLCSyphon.app` (Syphon on by default) and `VLCNDI.app` (NDI on by default,
   NDI-blue icon), both with all plugins, signed and notarized with the maintainer's Apple
-  Developer account via Apple's CLI tools.
+  Developer account via Apple's CLI tools (`apps/scripts/release-macos.sh`).
 
 ## Working rules
 
@@ -51,6 +53,10 @@ NDI discovery (mDNS) needs network access outside Claude's sandbox.
 with `-I dummy` use `--vout dummy`.
 
 macOS App Management blocks writes into `/Applications/VLC.app`. Don't try to work around it.
+
+App tests create `~/Library/{Preferences,Application Support,Caches}/com.studioavante.*`.
+Remove them afterwards (see docs/TESTING-APPS.md) so the maintainer's first-launch tests stay clean.
+Don't take screenshots of the maintainer's screen.
 
 ## Third-party files and references
 

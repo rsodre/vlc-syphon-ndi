@@ -24,6 +24,7 @@ option(VSN_BUILD_SYPHON "Build the Syphon filter (macOS)" ON)
 option(VSN_BUILD_NDI    "Build the NDI filters" ON)
 option(VSN_BUILD_SPOUT  "Build the Spout filter (Windows)" ON)
 option(VSN_BUILD_TOOLS  "Build developer test tools (tools/)" ON)
+option(VSN_BUILD_APPS   "Build the macOS app launcher (apps/)" ON)
 
 include(VLCPlugin)
 
@@ -38,4 +39,8 @@ endforeach()
 
 if(VSN_BUILD_TOOLS)
   add_subdirectory(tools)
+endif()
+
+if(VSN_BUILD_APPS)
+  add_subdirectory(apps)
 endif()

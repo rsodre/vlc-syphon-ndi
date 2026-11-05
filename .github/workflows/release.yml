@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Release: push a tag v<vlc version>-<build>, e.g. v3.0.24-1.
+# Builds and notarizes VLCSyphon/VLCNDI DMGs and the macOS plugin zip, builds Linux and
+# Windows plugin zips (experimental, untested), and drafts a GitHub release with all of them.
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
+#   MACOS_CERT_P12_BASE64   Developer ID Application certificate + key, .p12, base64
+#   MACOS_CERT_PASSWORD     password of the .p12
+#   MACOS_SIGN_IDENTITY     e.g. "Developer ID Application: Studio Avante (TEAMID1234)"
+#   NOTARY_KEY_P8_BASE64    App Store Connect API key (.p8), base64
+#   NOTARY_KEY_ID           its key ID
+#   NOTARY_ISSUER_ID        its issuer ID
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse tag
+        id: v
+        run: |
+          tag="${GITHUB_REF_NAME#v}"          # 3.0.24-1
+          echo "vlc=${tag%-*}" >> "$GITHUB_OUTPUT"
+          echo "build=${tag##*-}" >> "$GITHUB_OUTPUT"
+      - run: brew install ninja || true
+      - name: Import signing certificate
+        env:
+          P12: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          kc="$RUNNER_TEMP/signing.keychain-db"; kp="$(uuidgen)"
+          security create-keychain -p "$kp" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$kp" "$kc"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$kp" "$kc"
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+      - name: Store notarization credentials
+        env:
+          KEY: ${{ secrets.NOTARY_KEY_P8_BASE64 }}
+        run: |
+          echo "$KEY" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          xcrun notarytool store-credentials vsn-notary --key "$RUNNER_TEMP/notary.p8" \
+            --key-id "${{ secrets.NOTARY_KEY_ID }}" --issuer "${{ secrets.NOTARY_ISSUER_ID }}"
+      - name: Build, sign, notarize
+        env:
+          SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          NOTARY_PROFILE: vsn-notary
+          VLC_VERSION: ${{ steps.v.outputs.vlc }}
+        run: apps/scripts/release-macos.sh "${{ steps.v.outputs.build }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: |
+            dist/*/*.dmg
+            dist/*/*.zip
+            dist/*/*.tar.xz
+            dist/*/SHA256SUMS
+
+  plugins:
+    strategy:
+      matrix:
+        include:
+          - { name: linux-x86_64, preset: linux, apt: ninja-build }
+          - { name: windows-x64, preset: windows-mingw, apt: ninja-build mingw-w64 }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ${{ matrix.apt }}
+      - run: cmake --preset ${{ matrix.preset }} -DVSN_BUILD_HELLO=OFF -DVSN_BUILD_TOOLS=OFF
+      - run: cmake --build --preset ${{ matrix.preset }}
+      - name: Zip
+        run: |
+          cd build/${{ matrix.preset }}/out
+          zip -r "$GITHUB_WORKSPACE/vlc-syphon-ndi-plugins-${{ matrix.name }}-${GITHUB_REF_NAME#v}.zip" plugins
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.name }}
+          path: "*.zip"
+
+  release:
+    needs: [macos, plugins]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts, pattern: "release-*", merge-multiple: true }
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          find artifacts -type f -exec mv {} . \;
+          sha256sum *.dmg *.zip *.tar.xz > SHA256SUMS
+          v="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
+            --title "VLCSyphon & VLCNDI $v" \
+            --notes "Based on the official VLC ${v%-*} by VideoLAN (unmodified; source attached). Install and use: see the README. The Linux and Windows plugin zips are experimental and untested." \
+            *.dmg *.zip *.tar.xz SHA256SUMS

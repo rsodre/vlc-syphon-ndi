@@ -16,8 +16,8 @@ Frames are published at the file's own resolution, not the window size.
 
 This project replaces [VLCSyphon](https://github.com/rsodre/VLCSyphon), which was a fork of VLC.
 
-> **Status:** early development. The **Syphon** and **NDI** plugins work with VLC 3.0.24 on macOS
-> (build them yourself for now, see [Build](#build)). The ready-made apps are next.
+> **Status:** early development. The **Syphon** and **NDI** plugins work with VLC 3.0.24 on macOS,
+> and the apps can be built locally. The first signed release is coming soon.
 
 ## Requirements
 
@@ -47,8 +47,13 @@ Everything will be on the [GitHub Releases](https://github.com/rsodre/vlc-syphon
 | **VLCNDI.app** | VLC 3.0.24 with all plugins installed, **NDI on** by default |
 | **Plugin zips** | Just the plugins, per platform, to add to the official VLC ([install](#install-the-plugins-into-an-existing-vlc)) |
 
-Both apps contain every plugin, so you can turn Syphon and NDI on or off in either one.
-They are based on VLC but are not made or endorsed by VideoLAN.
+Both apps are the official VLC with every plugin added, so you can turn Syphon and NDI on or
+off in either one. Each app keeps its own settings, separate from the official VLC. They are
+based on VLC but are not made or endorsed by VideoLAN, and they don't update themselves: get
+new versions from Releases.
+
+Install: open the DMG and drag the app to Applications. On first launch VLC asks its usual
+privacy question.
 
 ## Use
 
@@ -198,19 +203,28 @@ shared/             code used by several plugins
   vlc3/             VLC 3.0.x adapter (VLC picture -> shared frame)
   ndi/              NDI runtime loader (plugin and ndi-probe)
 tools/              developer test tools, sources in src/ (syphon-probe, ndi-probe: test clients)
-apps/               the bundled macOS apps (VLCSyphon, VLCNDI): icons and packaging
+apps/               the macOS apps: per-app config, launcher (src/), icons, packaging scripts
 cmake/              CMake helpers (VLCPlugin.cmake), toolchains, build scripts
 scripts/            developer scripts (vendoring VLC headers, tests)
 third_party/        VLC 3.0.24 headers, Syphon.framework, NDI headers (see its README)
-docs/               design notes: HANDOVER.md (architecture, plan), PHASE0.md
+docs/               HANDOVER.md (architecture, plan), PHASE0.md, TESTING-APPS.md
 ```
 
 ## Distribution
 
-Releases are published on GitHub with both macOS apps (DMGs) and plugin zips per platform.
-The apps are VLC 3.0.24 built from source with a small patch that reads the default video filter
-from the app's Info.plist, plus all our plugins. They are signed with a Developer ID, notarized with
-`notarytool` and stapled.
+Releases are published on GitHub: both macOS apps (DMGs), plugin zips, VLC's source and
+checksums. The apps are the **official VLC** for macOS, unmodified, with our plugins and a tiny
+launcher added. The launcher turns the app's default filters on at first launch. They are re-signed
+with a Developer ID, notarized and stapled. Nothing in VLC is compiled.
+
+```sh
+apps/scripts/package-macos.sh 1     # build both apps locally (ad-hoc signed) into dist/
+apps/scripts/release-macos.sh 1     # full release; signing needs SIGN_IDENTITY + NOTARY_PROFILE
+```
+
+Pushing a tag like `v3.0.24-1` runs the same in GitHub Actions and drafts the release.
+How it works, signing setup and secrets: [apps/README.md](apps/README.md). Manual test
+checklist: [docs/TESTING-APPS.md](docs/TESTING-APPS.md).
 Details and status: [apps/README.md](apps/README.md) and [docs/HANDOVER.md](docs/HANDOVER.md).
 
 To vendor headers for a new VLC release: `scripts/fetch-vlc-headers.sh 3.0.25`.
