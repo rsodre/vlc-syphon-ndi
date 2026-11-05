@@ -41,22 +41,26 @@ This project replaces [VLCSyphon](https://github.com/rsodre/VLCSyphon), which wa
 
 ## Download
 
-Everything is on the [GitHub Releases](https://github.com/rsodre/vlc-syphon-ndi/releases) page:
+Get the latest release from [GitHub Releases](https://github.com/rsodre/vlc-syphon-ndi/releases/latest) (macOS 11+, Apple Silicon and Intel):
 
-| App | What it is |
+| File (v3.0.24-1) | What it is |
 |---|---|
-| **VLCSyphon.app** | VLC 3.0.24 with all plugins installed, **Syphon on** by default |
-| **VLCNDI.app** | VLC 3.0.24 with all plugins installed, **NDI on** by default |
-| **Plugin zip (macOS)** | Just the plugins, to add to the official VLC ([install](#install-the-plugins-into-an-existing-vlc)) |
+| **`VLCSyphon-3.0.24-1.dmg`** | VLCSyphon.app: VLC 3.0.24 with all plugins installed, **Syphon on** by default |
+| **`VLCNDI-3.0.24-1.dmg`** | VLCNDI.app: VLC 3.0.24 with all plugins installed, **NDI on** by default |
+| `vlc-syphon-ndi-plugins-macos-3.0.24-1.zip` | Just the plugins, to add to the official VLC ([install](#install-the-plugins-into-an-existing-vlc)) |
+| `vlc-3.0.24.tar.xz`, `SHA256SUMS` | VLC's source code (GPL) and the files' checksums |
+
+The apps and the plugins are signed by Studio Avante LTDA and notarized by Apple.
 
 Both apps are the official VLC with every plugin added, so you can turn Syphon and NDI on or
 off in either one. Each app keeps its own settings, separate from the official VLC. They are
 based on VLC but are not made or endorsed by VideoLAN, and they don't update themselves: get
 new versions from Releases.
 
-Install: open the DMG and drag the app to Applications. Unlike the official VLC, the apps don't
-ask about album art and metadata on first launch. Online metadata lookup stays off (VLC's
-default); turn it on in Preferences ▸ Interface ▸ "Allow metadata network access".
+Install: open the DMG and drag the app to Applications. You can install both apps, and the
+official VLC, side by side. Unlike the official VLC, the apps don't ask about album art and
+metadata on first launch. Online metadata lookup stays off (VLC's default); turn it on in
+Preferences ▸ Interface ▸ "Allow metadata network access".
 
 While a plugin is enabled, its Syphon server or NDI source **stays up the whole time VLC is
 open**, even with nothing playing:
@@ -73,8 +77,7 @@ Both apps start with these VLC settings, which you can change in Preferences:
 
 - **Video in its own window**, not inside the main window (Video ▸ "Show video within the main
   window" off).
-- **Dark interface** (Interface ▸ "Use the native dark mode" / Show All ▸ Interface ▸ Main
-  interfaces ▸ macOS ▸ "Run VLC with dark interface style").
+- **Dark interface** (Interface ▸ "Interface style": Dark).
 
 To hold the last frame at the end of a file (in the window, Syphon and NDI), turn on
 Show All ▸ Playlist ▸ "Play and pause".
@@ -138,7 +141,8 @@ output, but on macOS installing them does not install the runtime.
 Without it, VLC shows an error once and keeps playing without NDI. If the runtime is somewhere
 unusual, set `NDI_RUNTIME_DIR_V6` to its folder.
 
-On macOS, allow VLC to access the local network (and through the firewall) when it asks.
+On macOS, allow the app (VLCNDI, or VLC) to access the local network, and through the firewall,
+when it asks.
 
 ### Limitations
 
@@ -150,8 +154,8 @@ On macOS, allow VLC to access the local network (and through the firewall) when 
 ## Install the plugins into an existing VLC
 
 For people who want to keep using the official VLC 3.0.x instead of the bundled apps.
-Download the plugin zip for your platform from [Releases](https://github.com/rsodre/vlc-syphon-ndi/releases)
-and unzip it.
+On macOS, download `vlc-syphon-ndi-plugins-macos-<version>.zip` from [Releases](https://github.com/rsodre/vlc-syphon-ndi/releases)
+and unzip it. Windows and Linux plugins aren't released yet: [build them](#build) from source.
 
 **macOS:** the zip contains `libsyphon_plugin.dylib`, the NDI plugin and `Syphon.framework`.
 Keep them together in one folder.
@@ -168,18 +172,17 @@ Without that they start with the first video, and then stay up until VLC quits.
   open --env VLC_PLUGIN_PATH="$HOME/Library/Application Support/vlc-syphon-ndi/plugins" -a VLC
   ```
 
-  You need to launch VLC this way each time. Tested from the command line; the `open` launch is not tested yet.
+  You need to launch VLC this way each time.
 - *The usual VLC way:* copy everything into `VLC.app/Contents/MacOS/plugins/` (Finder:
   right-click VLC ▸ Show Package Contents). Recent macOS versions block this unless the app doing
   the copy has the **App Management** permission (System Settings ▸ Privacy & Security). It also breaks
   VLC's code signature, and every VLC update removes the plugins.
 
-**Windows:** copy `lib*_plugin.dll` into `C:\Program Files\VideoLAN\VLC\plugins\video_filter\`,
-then run `vlc --reset-plugins-cache` once. (Not tested yet.)
+**Windows** (built from source, untested): copy `libndi_plugin.dll` into
+`C:\Program Files\VideoLAN\VLC\plugins\video_filter\`, then run `vlc --reset-plugins-cache` once.
 
-**Linux:** copy `lib*_plugin.so` into VLC's plugin folder (for example
-`/usr/lib/x86_64-linux-gnu/vlc/plugins/video_filter/`), then run `vlc --reset-plugins-cache`.
-(Not tested yet.)
+**Linux** (built from source, untested): copy `libndi_plugin.so` into VLC's plugin folder (for
+example `/usr/lib/x86_64-linux-gnu/vlc/plugins/video_filter/`), then run `vlc --reset-plugins-cache`.
 
 ## Build
 
@@ -223,6 +226,7 @@ to make the clips.
 ```sh
 scripts/test-syphon-macos.sh       # Syphon end to end: size and colours, GPU and CPU paths
 NDI_RUNTIME_DIR_V6=<NDI SDK>/lib/macOS scripts/test-ndi-macos.sh   # NDI: colours and A/V sync
+scripts/test-live-toggle-macos.sh  # enabling/disabling in Preferences applies live
 scripts/test-load-macos.sh hello   # plugin loading smoke test (hello only logs)
 build/macos/out/tools/syphon-probe --list   # list Syphon servers on this Mac
 build/macos/out/tools/ndi-probe --list      # list NDI sources on the network
@@ -252,8 +256,8 @@ docs/               HANDOVER.md (architecture, plan), PHASE0.md, TESTING-APPS.md
 
 ## Distribution
 
-Releases are published on GitHub: both macOS apps (DMGs), plugin zips, VLC's source and
-checksums. The apps are the **official VLC** for macOS, unmodified, with our plugins and a tiny
+Releases are published on GitHub: both macOS apps (DMGs), the macOS plugin zip, VLC's source
+and checksums. The apps are the **official VLC** for macOS, unmodified, with our plugins and a tiny
 launcher added. The launcher turns the app's default filters on at first launch. They are re-signed
 with a Developer ID, notarized and stapled. Nothing in VLC is compiled.
 
