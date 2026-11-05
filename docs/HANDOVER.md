@@ -26,6 +26,28 @@ What's wrong with that design: Syphon works only with that one OpenGL video
 output, which VLC has since reworked, and every VLC upgrade means a manual rebase.
 **Use the old repo only as reference for the Syphon publishing logic. Don't copy it wholesale.**
 
+## Where we are (2026-11-05, end of session)
+
+- **Released: v3.0.24-1** (macOS) on GitHub: VLCSyphon and VLCNDI DMGs, macOS plugin zip, VLC
+  source, SHA256SUMS. Signed (Studio Avante LTDA, N7372UPM43) and notarized. The release was
+  rebuilt in place once to fix upside-down Syphon frames: the tag was moved to `a78c60a` and the
+  files were replaced, keeping the maintainer's edited description (copy in
+  `build/release-notes/v3.0.24-1.md`, not in git).
+- **Releases are local:** `apps/scripts/release-macos.sh <build>`, then
+  `apps/scripts/publish-release.sh <build>` (draft). See apps/README.md.
+- **Follow-ups:**
+  - `../VLCSyphon` (archived repo): README note "use vlc-syphon-ndi instead" is committed locally
+    on branch `Syphon` but not pushed. That needs unarchive, push, re-archive (maintainer to approve).
+  - Developer ID certificate **expires 2027-02-01**: renew before the next release after that.
+  - `.github/workflows/build.yml` uses actions targeting Node 20 (deprecated): bump
+    `actions/checkout` and `actions/upload-artifact`.
+  - Not yet verified: NDI with third-party receivers (OBS/DistroAV, vMix, NDI Studio Monitor) and
+    real audio output; NDI on Windows/Linux (compiles in CI only).
+  - Later: HDR tone mapping, Phase 4 (Spout), Phase 5 (VLC 4), addons.videolan.org listing.
+- **Lesson:** Syphon frames are bottom row first (OpenGL convention). Publish top-down Metal
+  textures with `flipped:YES`, and test with an OpenGL client read (`syphon-probe` default), not
+  raw Metal rows.
+
 ## Decisions (2026-11-05)
 
 These answer the earlier open questions and set the working rules.
