@@ -9,9 +9,8 @@ by default:
 | `VLCSyphon.app` | `com.studioavante.vlcsyphon` | `video-filter=syphon` | `resources/icons/VLCSyphon.icns` (orange) |
 | `VLCNDI.app` | `com.studioavante.vlcndi` | `video-filter=ndi`, `audio-filter=ndi` | `resources/icons/VLCNDI.icns` (NDI blue) |
 
-Both apps also start with **Play and pause** on: at the end of a file VLC stops on the last
-frame instead of closing the video, so Syphon and NDI keep showing it. The defaults live in
-each app's `app.conf`.
+Both apps also start with **video in its own window** instead of inside the main window and a
+**dark interface**. The defaults live in each app's `app.conf`.
 
 Users switch filters the regular VLC way (Preferences ▸ Show All ▸ Video/Audio ▸ Filters).
 Versions follow VLC: `3.0.24 (3.0.24.N)`, released as tag `v3.0.24-N`.
@@ -29,10 +28,12 @@ Versions follow VLC: `3.0.24 (3.0.24.N)`, released as tag `v3.0.24-N`.
 2. **Sets the default filters** with a tiny launcher (`launcher/src/main.c`) that becomes the
    bundle's executable. On first launch only, it writes the app's `vlcrc` with the filters
    named in the Info.plist keys `VSNDefaultVideoFilter` / `VSNDefaultAudioFilter` and the
-   `option=value` lines in `VSNDefaultCoreOptions` (both apps: `play-and-pause=1`, which stops on
-   the last frame at the end of a file so the window, Syphon and NDI keep it; and
-   `control=syphon:ndi`, which starts the Syphon server / NDI source with the app when their
-   filter is enabled), then
+   `option=value` lines in `VSNDefaultCoreOptions` (both apps: `control=syphon:ndi`, which starts the Syphon server / NDI source with the app when their
+   filter is enabled; `embedded-video=0`, video in its own window; and `macosx-interfacestyle=1`,
+   dark interface). It also marks VLC's
+   first-run question ("Check for album art and metadata?") as answered, with online metadata
+   left off (VLC's default): that modal question made VLC lose the separate video window when a
+   file was opened at first launch. Then it
    `exec`s VLC's own executable. After that they are ordinary preferences. No command-line
    options are injected, so the user's choices always win.
    Note: VLC's "Reset Preferences" writes VLC's own defaults, so the filter is off afterwards.

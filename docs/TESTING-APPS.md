@@ -14,12 +14,13 @@ first launch, quit the app and remove them:
 
 ```sh
 id=com.studioavante.vlcndi    # or com.studioavante.vlcsyphon
-defaults delete $id; rm -rf ~/Library/Preferences/$id ~/Library/Application\ Support/$id ~/Library/Caches/$id
+defaults delete $id; rm -rf ~/Library/Preferences/$id ~/Library/Application\ Support/$id ~/Library/Caches/$id ~/Library/HTTPStorages/$id
 ```
 
 ## VLCSyphon.app
 
-- [ ] First launch shows VLC's usual privacy question, once.
+- [ ] First launch (open a video file directly with the app) shows no "album art and metadata"
+      question, and the video opens in its own window.
 - [ ] Right after launch, with nothing playing, a Syphon client already lists
       **VLCSyphon – Video**: 1920×1080, fully transparent.
 - [ ] Play a video. A Syphon client (Resolume, MadMapper, OBS, Syphon Simple Client) lists
@@ -27,12 +28,16 @@ defaults delete $id; rm -rf ~/Library/Preferences/$id ~/Library/Application\ Sup
 - [ ] Preferences ▸ Show All ▸ Video ▸ Filters: **Syphon** is ticked. Untick, Save, quit,
       relaunch: the server is gone. Tick it again: it's back.
 - [ ] Preferences ▸ Video ▸ Filters ▸ Syphon: change the server name; clients show the new name.
-- [ ] At the end of a file, the video stays on its last frame and Syphon clients keep it
-      (Play and pause is on by default in both apps).
+- [ ] Video opens in its own window, not inside the main (playlist) window.
+- [ ] The interface is dark.
+- [ ] Cmd-Tab and the Dock show the app's own icon. (On a dev Mac that ran older builds from the
+      same path, run `killall Dock` once if the switcher still shows an old icon.)
 - [ ] Play a file with a different resolution: the server follows it.
 - [ ] Close the video window (or Stop): the server stays, fully transparent at the same size.
-- [ ] Turn Play and pause off (Preferences ▸ Show All ▸ Playlist): at the end of a file the
-      server stays, fully transparent at the same size.
+- [ ] At the end of a file the video window closes and the server stays, fully transparent at
+      the same size.
+- [ ] Turn Play and pause on (Preferences ▸ Show All ▸ Playlist): at the end of a file the video
+      stays on its last frame and Syphon clients keep it.
 - [ ] The official VLC (if installed) is unaffected: no Syphon, its settings unchanged.
 - [ ] The menu bar and Dock show VLCSyphon with the orange icon. "Check for Updates" never
       replaces the app with plain VLC (expect an error).

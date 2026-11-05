@@ -54,8 +54,9 @@ off in either one. Each app keeps its own settings, separate from the official V
 based on VLC but are not made or endorsed by VideoLAN, and they don't update themselves: get
 new versions from Releases.
 
-Install: open the DMG and drag the app to Applications. On first launch VLC asks its usual
-privacy question.
+Install: open the DMG and drag the app to Applications. Unlike the official VLC, the apps don't
+ask about album art and metadata on first launch. Online metadata lookup stays off (VLC's
+default); turn it on in Preferences ▸ Interface ▸ "Allow metadata network access".
 
 While a plugin is enabled, its Syphon server or NDI source **stays up the whole time VLC is
 open**, even with nothing playing:
@@ -68,9 +69,15 @@ open**, even with nothing playing:
 | The file ends otherwise, the video window closes, or Stop | fully transparent at the last size |
 | VLC quits | the server / source goes away |
 
-Both apps start with **Play and pause** on: at the end of a file, VLC stops on the last frame
-instead of closing the video, so Syphon and NDI keep showing it. Change it in Preferences ▸
-Show All ▸ Playlist ▸ "Play and pause" (or `--play-and-pause` in any VLC).
+Both apps start with these VLC settings, which you can change in Preferences:
+
+- **Video in its own window**, not inside the main window (Video ▸ "Show video within the main
+  window" off).
+- **Dark interface** (Interface ▸ "Use the native dark mode" / Show All ▸ Interface ▸ Main
+  interfaces ▸ macOS ▸ "Run VLC with dark interface style").
+
+To hold the last frame at the end of a file (in the window, Syphon and NDI), turn on
+Show All ▸ Playlist ▸ "Play and pause".
 
 ## Use
 

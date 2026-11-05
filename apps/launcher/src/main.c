@@ -11,7 +11,11 @@
 //      ~/Library/Preferences/<bundle id>/vlcrc (VLC 3 names that folder after the
 //      bundle id), turning on the filters named by the Info.plist keys
 //      VSNDefaultVideoFilter and VSNDefaultAudioFilter, plus any "name=value" core
-//      options listed in VSNDefaultCoreOptions (e.g. play-and-pause=1).
+//      options listed in VSNDefaultCoreOptions (e.g. embedded-video=0).
+//      On every launch it also makes sure VLC's first-run question ("Check for album art
+//      and metadata?") is marked as answered, leaving online metadata off (VLC's default). That modal question, shown
+//      while a file opened at first launch starts playing, made VLC lose the separate
+//      video window. Users can turn metadata on in Preferences.
 //   2. It replaces itself (execv) with VLC's own executable, Contents/MacOS/VLC,
 //      passing all arguments through. Same process, so Finder and Apple Events work.
 //
@@ -79,6 +83,22 @@ static int write_core_options(FILE *f, CFBundleRef bundle, const char *key)
     return n;
 }
 
+// Marks VLC's first-run question as answered (the macOS interface asks it when its
+// defaults have no VLCFirstRun date).
+static void skip_first_run_question(CFStringRef app_id)
+{
+    CFStringRef key = CFSTR("VLCFirstRun");
+    CFPropertyListRef existing = CFPreferencesCopyAppValue(key, app_id);
+    if (existing) {
+        CFRelease(existing);
+        return;
+    }
+    CFDateRef now = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+    CFPreferencesSetAppValue(key, now, app_id);
+    CFPreferencesAppSynchronize(app_id);
+    CFRelease(now);
+}
+
 // Writes the first-run vlcrc. Never touches an existing one.
 static void seed_preferences(CFBundleRef bundle)
 {
@@ -135,8 +155,12 @@ int main(int argc, char **argv)
     snprintf(vlc, sizeof(vlc), "%s/VLC", dirname(resolved));
 
     CFBundleRef bundle = CFBundleGetMainBundle();
-    if (bundle)
+    if (bundle) {
         seed_preferences(bundle);
+        CFStringRef id = CFBundleGetIdentifier(bundle);
+        if (id)
+            skip_first_run_question(id);
+    }
 
     argv[0] = vlc;
     execv(vlc, argv);

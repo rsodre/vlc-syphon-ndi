@@ -19,7 +19,7 @@ decisions, phased to-do list), then `docs/PHASE0.md` (feasibility results).
 - Windows toolchain: MinGW-w64. Releases: GitHub Releases (two apps + plugin zips).
 - The apps are the **official VLC.app repackaged**, with no VLC code changed or compiled.
   The apps/launcher seeds defaults from Info.plist (`VSNDefault{Video,Audio}Filter`,
-  `VSNDefaultCoreOptions`, e.g. `play-and-pause=1`), set in `apps/<App>/app.conf`, on first launch. Bundle IDs are `com.studioavante.*`, and versions are `<vlc>-<build>` (tag `v3.0.24-1`).
+  `VSNDefaultCoreOptions`, e.g. `embedded-video=0`), set in `apps/<App>/app.conf`, on first launch. Bundle IDs are `com.studioavante.*`, and versions are `<vlc>-<build>` (tag `v3.0.24-1`).
 - Not a Node project: C/Objective-C with CMake (presets: `macos`, `linux`, `windows-mingw`).
 - Deliverables: `VLCSyphon.app` (Syphon on by default) and `VLCNDI.app` (NDI on by default,
   NDI-blue icon), both with all plugins, signed and notarized with the maintainer's Apple
@@ -54,8 +54,10 @@ with `-I dummy` use `--vout dummy`.
 
 macOS App Management blocks writes into `/Applications/VLC.app`. Don't try to work around it.
 
-App tests create `~/Library/{Preferences,Application Support,Caches}/com.studioavante.*`.
-Remove them afterwards (see docs/TESTING-APPS.md) so the maintainer's first-launch tests stay clean.
+App tests must not touch the maintainer's app settings (`com.studioavante.vlcsyphon` / `.vlcndi`):
+the maintainer runs those apps between turns. Test a copy with a different bundle ID
+(e.g. `com.studioavante.vlcsyphon.test`), remove only that copy's settings afterwards, and only
+reset the real apps' settings when asked. A `HOME=` override doesn't isolate Cocoa defaults.
 Don't take screenshots of the maintainer's screen.
 
 ## Third-party files and references

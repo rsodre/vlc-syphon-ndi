@@ -155,6 +155,10 @@ TXT
   sign "$app"
 
   codesign --verify --deep --strict "$app"
+  # Local rebuilds reuse the same path and version: make Launch Services pick up the new
+  # icon and Info.plist (the Dock may still need `killall Dock`).
+  touch "$app"
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app" 2>/dev/null || true
   echo "$app"
 }
 
