@@ -65,6 +65,7 @@ next to them.
 | `scripts/notarize.sh <app/dmg/zip>` | notarize and staple |
 | `scripts/package-plugins-macos.sh <zip>` | plugin zip for the official VLC |
 | `scripts/release-macos.sh <build>` | all of the above, plus VLC's source and `SHA256SUMS` |
+| `scripts/publish-release.sh <build>` | tag and create a draft GitHub release from `dist/` |
 | `scripts/make-icons.sh` | regenerate the NDI-blue icon from the orange one |
 
 Without `SIGN_IDENTITY` everything is signed ad hoc, which is fine for local testing
@@ -89,9 +90,12 @@ but not for distribution (Gatekeeper rejects it on other Macs).
      apps/scripts/release-macos.sh 1
    ```
 
-For GitHub Actions (`.github/workflows/release.yml`, runs on tags `v*`), add the secrets
-listed at the top of that file. It drafts a release with both DMGs, the plugin zips
-(macOS; Linux and Windows experimental), VLC's source and `SHA256SUMS`.
+4. Publish: `apps/scripts/publish-release.sh 1` checks the DMGs are notarized, tags `v3.0.24-1`,
+   pushes the tag and creates a **draft** GitHub release with both DMGs, the plugin zip, VLC's
+   source and `SHA256SUMS`. Review it on GitHub and publish it there.
+
+Releases are built locally for now (no release CI). `.github/workflows/build.yml` only checks
+that the plugins compile on macOS, Linux and Windows.
 
 ## Licensing notes
 

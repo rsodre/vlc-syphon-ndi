@@ -23,7 +23,9 @@ decisions, phased to-do list), then `docs/PHASE0.md` (feasibility results).
 - Not a Node project: C/Objective-C with CMake (presets: `macos`, `linux`, `windows-mingw`).
 - Deliverables: `VLCSyphon.app` (Syphon on by default) and `VLCNDI.app` (NDI on by default,
   NDI-blue icon), both with all plugins, signed and notarized with the maintainer's Apple
-  Developer account via Apple's CLI tools (`apps/scripts/release-macos.sh`).
+  Developer account via Apple's CLI tools. Releases are built and published **locally**
+  (`apps/scripts/release-macos.sh`, then `publish-release.sh` makes a draft GitHub release);
+  no release CI. `.github/workflows/build.yml` is only a compile check.
 
 ## Working rules
 

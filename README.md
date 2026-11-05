@@ -257,13 +257,15 @@ checksums. The apps are the **official VLC** for macOS, unmodified, with our plu
 launcher added. The launcher turns the app's default filters on at first launch. They are re-signed
 with a Developer ID, notarized and stapled. Nothing in VLC is compiled.
 
+Releases are built and published locally:
+
 ```sh
 apps/scripts/package-macos.sh 1     # build both apps locally (ad-hoc signed) into dist/
-apps/scripts/release-macos.sh 1     # full release; signing needs SIGN_IDENTITY + NOTARY_PROFILE
+apps/scripts/release-macos.sh 1     # signed + notarized release; needs SIGN_IDENTITY + NOTARY_PROFILE
+apps/scripts/publish-release.sh 1   # tag v3.0.24-1 and create a draft GitHub release
 ```
 
-Pushing a tag like `v3.0.24-1` runs the same in GitHub Actions and drafts the release.
-How it works, signing setup and secrets: [apps/README.md](apps/README.md). Manual test
+How it works and the signing setup: [apps/README.md](apps/README.md). Manual test
 checklist: [docs/TESTING-APPS.md](docs/TESTING-APPS.md).
 Details and status: [apps/README.md](apps/README.md) and [docs/HANDOVER.md](docs/HANDOVER.md).
 

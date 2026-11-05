@@ -151,7 +151,7 @@ Two ways to ship:
    - Sign every dylib with a Developer ID, the hardened runtime and VLC's entitlements
      (`extras/package/macosx/codesign.sh` is a starting point), then notarize with `notarytool`,
      staple, and package as a DMG.
-   - Rebuild for each VLC security release. Automate this in GitHub Actions.
+   - Rebuild for each VLC security release (locally for now: release-macos.sh + publish-release.sh).
    - NDI broadcasts to the LAN and triggers a macOS firewall prompt, which is expected in VLCNDI.app.
    - Each app needs its own bundle ID and its own VLC preferences folder, so the two apps and
      an official VLC on the same Mac don't share settings. Check this in Phase 3.
@@ -197,10 +197,10 @@ Two ways to ship:
       and Sparkle disconnected; plugin cache rebuilt; re-signed). Both apps tested by launching
       them with a file: Syphon frames correct, NDI picture + sound with +6 ms A/V offset through the
       real audio output. DMGs, plugin zip, VLC source and checksums from
-      `apps/scripts/release-macos.sh`; GitHub Actions `release.yml` on `v*` tags.
+      `apps/scripts/release-macos.sh`, published as a draft by `apps/scripts/publish-release.sh`.
+      Releases are built locally (maintainer's choice; the release CI was removed).
       - [ ] Developer ID certificate + notarytool profile (maintainer), then the first signed
             release and notarization run.
-      - [ ] Repository secrets for `release.yml`.
       - [ ] Manual checklist: docs/TESTING-APPS.md.
       (Original notes: VLCNDI.app must default both `video-filter` and
       `audio-filter` to `ndi`; keep VLC's `disable-library-validation` entitlement, which is what lets
