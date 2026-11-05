@@ -1,0 +1,9 @@
+# Vendored third-party files are committed byte-for-byte. Marking them binary stops
+# end-of-line conversion (core.autocrlf on Windows) from rewriting Syphon.framework,
+# whose code signature covers every file.
+third_party/** -text
+third_party/**/README.md text=auto
+
+*.sh text eol=lf
+*.icns binary
+*.png binary
