@@ -20,10 +20,19 @@ if [[ "$target" == *.app ]]; then
 fi
 
 echo "Notarizing $(basename "$target")..."
-xcrun notarytool submit "$submit" --keychain-profile "$NOTARY_PROFILE" --wait --timeout 60m \
-  | tee /dev/stderr | grep -q "status: Accepted" || {
-    echo "Notarization failed. Inspect with: xcrun notarytool log <id> --keychain-profile $NOTARY_PROFILE" >&2
-    exit 1; }
+# Capture first: grepping the live pipe (grep -q exits early) fails under pipefail.
+out="$(xcrun notarytool submit "$submit" --keychain-profile "$NOTARY_PROFILE" --wait --timeout 60m 2>&1)" || true
+echo "$out" | grep -E "^ *(id|status):"
+id="$(echo "$out" | sed -n 's/^ *id: //p' | head -1)"
+if ! grep -q "status: Accepted" <<<"$out"; then
+  echo "$out" >&2
+  [[ -n "$id" ]] && xcrun notarytool log "$id" --keychain-profile "$NOTARY_PROFILE" >&2
+  echo "Notarization failed for $(basename "$target")" >&2
+  exit 1
+fi
+# Accepted can still carry warnings: show them.
+xcrun notarytool log "$id" --keychain-profile "$NOTARY_PROFILE" 2>/dev/null \
+  | grep -E '"(severity|message|path)"' | head -20 || true
 
 case "$target" in
   *.app|*.dmg) xcrun stapler staple "$target" && xcrun stapler validate "$target" ;;
