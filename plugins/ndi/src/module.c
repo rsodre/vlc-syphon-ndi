@@ -15,6 +15,8 @@
 //   - When the video closes (end of file without Play and pause, window closed, stop),
 //     the source stays up and sends a fully transparent frame at the last size.
 // Without the control interface, the source starts with the first frame instead.
+// With it, enabling or disabling the NDI filters in Preferences applies within a second:
+// the source starts or stops, and the filters are added to or removed from what plays.
 
 #include <stdatomic.h>
 
@@ -28,6 +30,7 @@
 
 #include <vsn/ndi_runtime.h>
 #include <vsn/vlc3.h>
+#include <vsn/vlc3_live.h>
 
 #include "sender.h"
 #ifdef __APPLE__
@@ -106,11 +109,12 @@ static atomic_bool error_shown;
 static vlc_mutex_t keep_lock = VLC_STATIC_MUTEX;
 static vsn_ndi_sender *keep;
 static bool shutting_down;
+static atomic_bool disabled;  // no NDI filter enabled in Preferences (control interface)
 
 static void KeepAlive(const char *name)
 {
     vlc_mutex_lock(&keep_lock);
-    if (!keep && !shutting_down)
+    if (!keep && !shutting_down && !atomic_load(&disabled))
         keep = vsn_ndi_sender_acquire(name, NULL, 0);
     vlc_mutex_unlock(&keep_lock);
 }
@@ -120,6 +124,8 @@ static void KeepAlive(const char *name)
 static vsn_ndi_sender *GetSender(filter_t *filter)
 {
     filter_sys_t *sys = filter->p_sys;
+    if (atomic_load(&disabled))  // being removed after Preferences turned NDI off
+        return NULL;
     if (sys->sender || sys->failed)
         return sys->sender;
 
@@ -319,44 +325,131 @@ static void CloseAudio(vlc_object_t *obj)
     CloseCommon((filter_t *)obj);
 }
 
-/* Control interface: the source while VLC is open */
+/* Control interface: the source while VLC is open, following Preferences live */
+
+#define WATCH_INTERVAL (CLOCK_FREQ / 2)
+
+struct intf_sys_t {
+    vlc_thread_t thread;
+    char *saved_video;  // last seen saved "video-filter" / "audio-filter" settings
+    char *saved_audio;
+};
+
+static void StartSource(vlc_object_t *obj, bool video)
+{
+    char *name = var_InheritString(obj, CFG_PREFIX "name");
+    char err[1024];
+    vlc_mutex_lock(&keep_lock);
+    atomic_store(&disabled, false);
+    bool existed = keep != NULL;
+    if (!keep)
+        keep = vsn_ndi_sender_acquire(name, err, sizeof(err));
+    if (keep && !existed && video)
+        vsn_ndi_sender_color(keep, IDLE_WIDTH, IDLE_HEIGHT, 0, 0, 0, 0);  // no video yet
+    bool ok = keep != NULL;
+    vlc_mutex_unlock(&keep_lock);
+
+    // A missing runtime is only logged here: the GUI may not be ready for dialogs yet.
+    // The filters show the dialog when something plays.
+    if (!ok)
+        msg_Err(obj, "%s", err);
+    else if (!existed)
+        msg_Info(obj, "NDI source \"%s\" started (runtime: %s)", name ? name : "",
+                 vsn_ndi_runtime_path());
+    free(name);
+}
+
+static void StopSource(void)
+{
+    vlc_mutex_lock(&keep_lock);
+    atomic_store(&disabled, true);
+    vsn_ndi_sender *s = keep;
+    keep = NULL;
+    vlc_mutex_unlock(&keep_lock);
+    vsn_ndi_sender_release(s);  // the source goes away with the filters' references
+}
+
+// Watches the saved settings; on a change, applies them to the source and to what plays.
+static void *Watch(void *data)
+{
+    intf_thread_t *intf = data;
+    intf_sys_t *sys = intf->p_sys;
+    vlc_object_t *obj = VLC_OBJECT(intf);
+    for (;;) {
+        msleep(WATCH_INTERVAL);
+        int canc = vlc_savecancel();
+        char *vf = vsn_vlc3_saved_setting(obj, "video-filter");
+        char *af = vsn_vlc3_saved_setting(obj, "audio-filter");
+        bool was_v = vsn_vlc3_list_has(sys->saved_video, "ndi");
+        bool was_a = vsn_vlc3_list_has(sys->saved_audio, "ndi");
+        bool v = vsn_vlc3_list_has(vf, "ndi"), a = vsn_vlc3_list_has(af, "ndi");
+        free(sys->saved_video);
+        free(sys->saved_audio);
+        sys->saved_video = vf;
+        sys->saved_audio = af;
+
+        if (v != was_v || a != was_a) {
+            msg_Info(intf, "NDI video %s, audio %s in Preferences", v ? "on" : "off", a ? "on" : "off");
+            if ((v || a) && !(was_v || was_a))
+                StartSource(obj, v);
+            if (v != was_v)
+                vsn_vlc3_apply_live(obj, true, "ndi", v);
+            if (a != was_a)
+                vsn_vlc3_apply_live(obj, false, "ndi", a);
+            if (!(v || a) && (was_v || was_a))
+                StopSource();  // after removing the filters
+        }
+        vlc_restorecancel(canc);
+    }
+    return NULL;
+}
 
 static int OpenIntf(vlc_object_t *obj)
 {
+    intf_thread_t *intf = (intf_thread_t *)obj;
+    intf_sys_t *sys = calloc(1, sizeof(*sys));
+    if (!sys)
+        return VLC_ENOMEM;
+    intf->p_sys = sys;
+
+    // At launch the effective settings count (they include command-line options);
+    // later changes are watched in the saved settings, which Preferences writes.
     char *vf = var_InheritString(obj, "video-filter");
     char *af = var_InheritString(obj, "audio-filter");
     bool video = vsn_vlc3_list_has(vf, "ndi"), audio = vsn_vlc3_list_has(af, "ndi");
     free(vf);
     free(af);
-    if (!video && !audio) {
-        msg_Dbg(obj, "NDI filters not enabled, no source at startup");
-        return VLC_SUCCESS;  // stay loaded, harmlessly: the setting may be shared by apps
-    }
+    sys->saved_video = vsn_vlc3_saved_setting(obj, "video-filter");
+    sys->saved_audio = vsn_vlc3_saved_setting(obj, "audio-filter");
 
-    char *name = var_InheritString(obj, CFG_PREFIX "name");
-    char err[1024];
     vlc_mutex_lock(&keep_lock);
     shutting_down = false;
-    if (!keep)
-        keep = vsn_ndi_sender_acquire(name, err, sizeof(err));
-    if (keep && video)
-        vsn_ndi_sender_color(keep, IDLE_WIDTH, IDLE_HEIGHT, 0, 0, 0, 0);
     vlc_mutex_unlock(&keep_lock);
-
-    // A missing runtime is only logged here: the GUI may not be ready for dialogs yet.
-    // The filters show the dialog when something plays.
-    if (keep)
-        msg_Info(obj, "NDI source \"%s\" started (runtime: %s)", name ? name : "",
-                 vsn_ndi_runtime_path());
+    atomic_store(&disabled, !(video || audio));
+    if (video || audio)
+        StartSource(obj, video);
     else
-        msg_Err(obj, "%s", err);
-    free(name);
+        msg_Dbg(obj, "NDI filters not enabled, no source for now");
+
+    if (vlc_clone(&sys->thread, Watch, intf, VLC_THREAD_PRIORITY_LOW)) {
+        free(sys->saved_video);
+        free(sys->saved_audio);
+        free(sys);
+        return VLC_ENOMEM;
+    }
     return VLC_SUCCESS;
 }
 
 static void CloseIntf(vlc_object_t *obj)
 {
-    (void)obj;
+    intf_thread_t *intf = (intf_thread_t *)obj;
+    intf_sys_t *sys = intf->p_sys;
+    vlc_cancel(sys->thread);
+    vlc_join(sys->thread, NULL);
+    free(sys->saved_video);
+    free(sys->saved_audio);
+    free(sys);
+
     // VLC is quitting: drop the keep-alive reference; the source goes away with the
     // last filter.
     vlc_mutex_lock(&keep_lock);

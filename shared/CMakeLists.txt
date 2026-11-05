@@ -11,7 +11,7 @@ add_library(vsn_core STATIC core/src/frame.c)
 add_library(vsn::core ALIAS vsn_core)
 target_include_directories(vsn_core PUBLIC core/include)
 
-add_library(vsn_vlc3 STATIC vlc3/src/frame_vlc3.c)
+add_library(vsn_vlc3 STATIC vlc3/src/frame_vlc3.c vlc3/src/live_vlc3.c)
 add_library(vsn::vlc3 ALIAS vsn_vlc3)
 target_include_directories(vsn_vlc3 PUBLIC vlc3/include)
 target_link_libraries(vsn_vlc3 PUBLIC vsn::core vlc::plugin)

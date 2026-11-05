@@ -43,6 +43,7 @@ decisions, phased to-do list), then `docs/PHASE0.md` (feasibility results).
 cmake --preset macos && cmake --build --preset macos   # -> build/macos/out/plugins/
 scripts/test-load-macos.sh hello                        # loads it in /Applications/VLC.app via VLC_PLUGIN_PATH
 scripts/test-syphon-macos.sh                            # Syphon end to end (uses tools/syphon-probe)
+scripts/test-live-toggle-macos.sh                       # enabling/disabling in Preferences applies live
 NDI_RUNTIME_DIR_V6=~/Dev/apps/blendy-live/libs/NDI/darwin/macOS scripts/test-ndi-macos.sh   # NDI (tools/ndi-probe)
 ```
 

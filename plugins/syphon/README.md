@@ -30,6 +30,12 @@ nothing unless the Syphon video filter is enabled. Without it, the server starts
 video. The apps turn it on (`control=syphon:ndi`). The switch to transparent waits 300 ms, so
 VLC rebuilding the filter chain between files doesn't flash.
 
+The control interface also follows Preferences **live**: it checks the saved `video-filter`
+setting twice a second. Enabling Syphon starts the server and adds the filter to the video that's
+playing; disabling removes the filter and stops the server (VLC rebuilds the filter chain of a
+running video when its `video-filter` variable changes, as the Video Effects panel does).
+Test: `scripts/test-live-toggle-macos.sh syphon`.
+
 ## How it works
 
 ```

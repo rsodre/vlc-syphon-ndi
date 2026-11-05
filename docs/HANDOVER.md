@@ -58,6 +58,8 @@ These answer the earlier open questions and set the working rules.
   Filters only exist while a video does, so the launch part is a **control interface** submodule
   in each plugin (`--control=syphon:ndi`, seeded by the apps). It's inert unless its filter is enabled.
   NDI repeats the last frame once a second when idle, because receivers only get frames sent after they connect.
+  The control interfaces also apply Preferences changes **live** (polling the saved setting twice a
+  second and changing the running vout/aout filter lists), so no restart is needed.
 - **NDI colours:** the NDI 6.3.2 SDK receiver decodes every resolution as BT.709 limited range,
   although NDI's docs say BT.601 for SD. The sender normalises to BT.709 by default
   (`--ndi-bt709`, can be turned off).

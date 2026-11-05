@@ -14,6 +14,9 @@
 //     When the video closes (end of file without Play and pause, window closed, stop),
 //     the server stays up, fully transparent at the last size.
 // Without the control interface, the server starts with the first video instead.
+// With it, enabling or disabling the filter in Preferences applies within a second:
+// the server starts or stops, and the filter is added to or removed from the video
+// that is playing.
 
 #include <vsn/plugin.h>
 #include <vlc_filter.h>
@@ -21,6 +24,7 @@
 #include <vlc_picture.h>
 
 #include <vsn/vlc3.h>
+#include <vsn/vlc3_live.h>
 
 #include "publisher.h"
 
@@ -74,11 +78,12 @@ static vsn_syphon *server;
 static char *server_name;
 static bool server_failed;  // creation failed once: don't retry on every frame
 static bool shutting_down;  // control interface closed: VLC is quitting
+static bool disabled;       // filter disabled in Preferences (control interface): no server
 
 // Returns the server, creating it or renaming it as needed. Call with server_lock held.
 static vsn_syphon *ServerGet(vlc_object_t *obj, const char *name)
 {
-    if (shutting_down || server_failed)
+    if (shutting_down || server_failed || disabled)
         return server;
     if (!name)
         name = "";
@@ -190,32 +195,109 @@ static void CloseFilter(vlc_object_t *obj)
     free(sys);
 }
 
-/* Control interface: the server while VLC is open */
+/* Control interface: the server while VLC is open, following Preferences live */
+
+#define WATCH_INTERVAL (CLOCK_FREQ / 2)
+
+struct intf_sys_t {
+    vlc_thread_t thread;
+    char *saved;  // last seen saved "video-filter" setting
+};
+
+static void StartServer(vlc_object_t *obj)
+{
+    char *name = var_InheritString(obj, CFG_PREFIX "name");
+    vlc_mutex_lock(&server_lock);
+    disabled = false;
+    bool existed = server != NULL;
+    vsn_syphon *s = ServerGet(obj, name);
+    if (s && !existed)
+        vsn_syphon_publish_color(s, IDLE_WIDTH, IDLE_HEIGHT, 0, 0, 0, 0);  // no video yet
+    vlc_mutex_unlock(&server_lock);
+    free(name);
+}
+
+static void StopServer(void)
+{
+    vlc_mutex_lock(&server_lock);
+    disabled = true;
+    vsn_syphon_destroy(server);
+    server = NULL;
+    free(server_name);
+    server_name = NULL;
+    vlc_mutex_unlock(&server_lock);
+}
+
+// Watches the saved setting; on a change, applies it to the server and to what plays now.
+static void *Watch(void *data)
+{
+    intf_thread_t *intf = data;
+    intf_sys_t *sys = intf->p_sys;
+    for (;;) {
+        msleep(WATCH_INTERVAL);
+        int canc = vlc_savecancel();
+        char *now = vsn_vlc3_saved_setting(VLC_OBJECT(intf), "video-filter");
+        bool was = vsn_vlc3_list_has(sys->saved, "syphon");
+        bool is = vsn_vlc3_list_has(now, "syphon");
+        free(sys->saved);
+        sys->saved = now;
+        if (is != was) {
+            msg_Info(intf, "Syphon %s in Preferences", is ? "enabled" : "disabled");
+            if (is) {
+                StartServer(VLC_OBJECT(intf));
+                vsn_vlc3_apply_live(VLC_OBJECT(intf), true, "syphon", true);
+            } else {
+                // Remove the filter first, so it can't publish into a stopped server.
+                vsn_vlc3_apply_live(VLC_OBJECT(intf), true, "syphon", false);
+                StopServer();
+            }
+        }
+        vlc_restorecancel(canc);
+    }
+    return NULL;
+}
 
 static int OpenIntf(vlc_object_t *obj)
 {
+    intf_thread_t *intf = (intf_thread_t *)obj;
+    intf_sys_t *sys = calloc(1, sizeof(*sys));
+    if (!sys)
+        return VLC_ENOMEM;
+    intf->p_sys = sys;
+
+    // At launch the effective setting counts (it includes command-line options);
+    // later changes are watched in the saved setting, which Preferences writes.
     char *filters = var_InheritString(obj, "video-filter");
     bool enabled = vsn_vlc3_list_has(filters, "syphon");
     free(filters);
-    if (!enabled) {
-        msg_Dbg(obj, "Syphon video filter not enabled, no server at startup");
-        return VLC_SUCCESS;  // stay loaded, harmlessly: the setting may be shared by apps
-    }
+    sys->saved = vsn_vlc3_saved_setting(obj, "video-filter");
 
-    char *name = var_InheritString(obj, CFG_PREFIX "name");
     vlc_mutex_lock(&server_lock);
     shutting_down = false;
-    vsn_syphon *s = ServerGet(obj, name);
-    if (s)
-        vsn_syphon_publish_color(s, IDLE_WIDTH, IDLE_HEIGHT, 0, 0, 0, 0);
+    disabled = !enabled;
     vlc_mutex_unlock(&server_lock);
-    free(name);
+    if (enabled)
+        StartServer(obj);
+    else
+        msg_Dbg(obj, "Syphon video filter not enabled, no server for now");
+
+    if (vlc_clone(&sys->thread, Watch, intf, VLC_THREAD_PRIORITY_LOW)) {
+        free(sys->saved);
+        free(sys);
+        return VLC_ENOMEM;
+    }
     return VLC_SUCCESS;
 }
 
 static void CloseIntf(vlc_object_t *obj)
 {
-    (void)obj;
+    intf_thread_t *intf = (intf_thread_t *)obj;
+    intf_sys_t *sys = intf->p_sys;
+    vlc_cancel(sys->thread);
+    vlc_join(sys->thread, NULL);
+    free(sys->saved);
+    free(sys);
+
     // VLC is quitting: stop the server now, and don't let late video frames restart it.
     vlc_mutex_lock(&server_lock);
     shutting_down = true;

@@ -83,8 +83,11 @@ Show All ▸ Playlist ▸ "Play and pause".
 
 ### Turn a plugin on or off
 
-In VLC: **Preferences** ▸ **Show All** ▸ **Video** ▸ **Filters**, then tick **Syphon** and/or **NDI**.
-Restart playback for the change to apply.
+In VLC: **Preferences** ▸ **Show All** ▸ **Video** ▸ **Filters**, then tick **Syphon** and/or **NDI**
+(for NDI sound, also **Audio** ▸ **Filters** ▸ **NDI**), and Save. In the apps the change applies
+within a second, even to the video that's playing; no restart needed. Unticking stops the Syphon
+server / NDI source. In the official VLC with the plugin zip, that needs the control interfaces
+below; without them, changes apply from the next file.
 
 Or from the command line:
 

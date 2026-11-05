@@ -34,6 +34,9 @@ The NDI source stays up while VLC is open:
 
 - Starting at launch needs the control interface `ndi` (Preferences ▸ Interface ▸ Control
   interfaces ▸ NDI, or `--control=ndi`). It does nothing unless an NDI filter is enabled.
+- The control interface follows Preferences **live** (checks twice a second): enabling the video
+  or audio filter adds it to what's playing (and starts the source); disabling both removes them
+  and stops the source. Test: `scripts/test-live-toggle-macos.sh ndi`.
 - NDI receivers only get frames sent after they connect, so the last video frame is sent again
   once a second while nothing new comes (idle, paused, held last frame). While no receiver is
   connected, one real frame a second is still sent, because NDI gives a new receiver the last

@@ -25,8 +25,9 @@ defaults delete $id; rm -rf ~/Library/Preferences/$id ~/Library/Application\ Sup
       **VLCSyphon – Video**: 1920×1080, fully transparent.
 - [ ] Play a video. A Syphon client (Resolume, MadMapper, OBS, Syphon Simple Client) lists
       **VLCSyphon – Video**, and the picture plays in VLC's window at the same time.
-- [ ] Preferences ▸ Show All ▸ Video ▸ Filters: **Syphon** is ticked. Untick, Save, quit,
-      relaunch: the server is gone. Tick it again: it's back.
+- [ ] Preferences ▸ Show All ▸ Video ▸ Filters: **Syphon** is ticked. While a video plays,
+      untick it and Save: within a second the server is gone and the video keeps playing.
+      Tick it and Save: the server is back, showing the playing video. No restart needed.
 - [ ] Preferences ▸ Video ▸ Filters ▸ Syphon: change the server name; clients show the new name.
 - [ ] Video opens in its own window, not inside the main (playlist) window.
 - [ ] The interface is dark.
