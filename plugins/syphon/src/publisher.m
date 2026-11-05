@@ -6,6 +6,9 @@
 // Every frame is drawn into one BGRA texture by a small Metal shader that converts
 // YCbCr to RGB, crops to the visible area and optionally corrects the pixel aspect.
 // That texture is handed to SyphonMetalServer on the same command buffer.
+// Our texture has its top row first (Metal's usual layout). Syphon frames follow the
+// OpenGL convention (first row = bottom of the picture), so frames are published with
+// flipped:YES; with NO, OpenGL clients such as Simple Client showed them upside down.
 //
 //   CVPixelBuffer (VideoToolbox)  -> CVMetalTextureCache, zero copy
 //   CPU planes (software decoder) -> replaceRegion into a ring of upload textures
@@ -343,7 +346,7 @@ static bool cvpx_layout(OSType type, vsn_pixfmt *fmt, bool *full_range)
     id<MTLCommandBuffer> cb = [_queue commandBuffer];
     [[cb renderCommandEncoderWithDescriptor:pass] endEncoding];
     [_server publishFrameTexture:output onCommandBuffer:cb
-                     imageRegion:NSMakeRect(0, 0, w, h) flipped:NO];
+                     imageRegion:NSMakeRect(0, 0, w, h) flipped:YES];
     dispatch_semaphore_t inflight = _inflight;
     [cb addCompletedHandler:^(id<MTLCommandBuffer> done) { dispatch_semaphore_signal(inflight); }];
     [cb commit];
@@ -445,7 +448,7 @@ static bool cvpx_layout(OSType type, vsn_pixfmt *fmt, bool *full_range)
     [enc endEncoding];
 
     [_server publishFrameTexture:output onCommandBuffer:cb
-                     imageRegion:NSMakeRect(0, 0, outW, outH) flipped:NO];
+                     imageRegion:NSMakeRect(0, 0, outW, outH) flipped:YES];
 
     dispatch_semaphore_t inflight = _inflight;
     CVMetalTextureRef t0 = cvTextures[0], t1 = cvTextures[1], t2 = cvTextures[2];
