@@ -23,6 +23,7 @@ option(VSN_BUILD_HELLO  "Build the 'hello' pass-through test filter (Phase 0)" O
 option(VSN_BUILD_SYPHON "Build the Syphon filter (macOS)" ON)
 option(VSN_BUILD_NDI    "Build the NDI filters" ON)
 option(VSN_BUILD_SPOUT  "Build the Spout filter (Windows)" ON)
+option(VSN_BUILD_TOOLS  "Build developer test tools (tools/)" ON)
 
 include(VLCPlugin)
 
@@ -34,3 +35,7 @@ foreach(plugin hello syphon ndi spout)
     add_subdirectory(plugins/${plugin})
   endif()
 endforeach()
+
+if(VSN_BUILD_TOOLS)
+  add_subdirectory(tools)
+endif()

@@ -5,6 +5,24 @@
 
 #include <vsn/vlc3.h>
 
+#ifdef __APPLE__
+// Mirror of the head of VLC 3.0.x's private `struct cvpxpic_ctx`
+// (modules/codec/vt_utils.c), which every CVPX picture carries as its context.
+// VLC's own accessor, cvpxpic_get_ref(), is not exported to plugins.
+// Re-check this layout whenever the vendored VLC version changes.
+struct vsn_vlc3_cvpxpic_ctx {
+    picture_context_t s;
+    void *cvpx; // CVPixelBufferRef
+};
+
+static void *cvpx_from_picture(const picture_t *pic)
+{
+    if (!pic->context)
+        return NULL;
+    return ((const struct vsn_vlc3_cvpxpic_ctx *)pic->context)->cvpx;
+}
+#endif
+
 bool vsn_vlc3_chroma(vlc_fourcc_t chroma, vsn_pixfmt *pixfmt, vsn_memory *memory)
 {
     vsn_memory mem = VSN_MEMORY_CPU;
@@ -49,9 +67,29 @@ bool vsn_vlc3_frame_from_picture(const video_format_t *fmt, const picture_t *pic
     out->fps_num = fmt->i_frame_rate;
     out->fps_den = fmt->i_frame_rate_base;
     out->pts_us = pic->date;
+    out->x_offset = fmt->i_x_offset;
+    out->y_offset = fmt->i_y_offset;
+    out->full_range = fmt->b_color_range_full;
+    switch (fmt->space) {
+    case COLOR_SPACE_BT601:  out->colorspace = VSN_COLORSPACE_BT601; break;
+    case COLOR_SPACE_BT709:  out->colorspace = VSN_COLORSPACE_BT709; break;
+    case COLOR_SPACE_BT2020: out->colorspace = VSN_COLORSPACE_BT2020; break;
+    default: // same guess as VLC's video_format_FixColorspace(): HD is BT.709
+        out->colorspace = fmt->i_visible_height > 576 ? VSN_COLORSPACE_BT709
+                                                      : VSN_COLORSPACE_BT601;
+        break;
+    }
 
+    if (out->memory == VSN_MEMORY_CVPIXELBUFFER) {
+#ifdef __APPLE__
+        out->native = cvpx_from_picture(pic);
+#endif
+        return out->native != NULL;
+    }
     if (out->memory != VSN_MEMORY_CPU)
         return true;
+
+    out->x_offset = out->y_offset = 0;
 
     // Point each plane at the visible area. Chroma planes are subsampled, so the
     // offsets are scaled by the plane's size relative to the luma plane.

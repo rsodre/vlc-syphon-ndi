@@ -18,8 +18,8 @@ bool vsn_vlc3_chroma(vlc_fourcc_t chroma, vsn_pixfmt *pixfmt, vsn_memory *memory
 
 /**
  * Describes a VLC picture without copying it. Plane pointers stay valid only
- * while the picture is held. For GPU pictures, native is left NULL here:
- * extracting the handle is platform code (see plugins/syphon, plugins/spout).
+ * while the picture is held. For CVPX (VideoToolbox) pictures, native is the
+ * CVPixelBufferRef, not retained. For D3D11 pictures, native is left NULL (Phase 4).
  * Returns false if the chroma is unsupported.
  */
 bool vsn_vlc3_frame_from_picture(const video_format_t *fmt, const picture_t *pic,

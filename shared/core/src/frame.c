@@ -17,6 +17,16 @@ const char *vsn_pixfmt_name(vsn_pixfmt fmt)
     return "unknown";
 }
 
+const char *vsn_colorspace_name(vsn_colorspace cs)
+{
+    switch (cs) {
+    case VSN_COLORSPACE_BT601: return "BT.601";
+    case VSN_COLORSPACE_BT709: return "BT.709";
+    case VSN_COLORSPACE_BT2020: return "BT.2020";
+    }
+    return "unknown";
+}
+
 const char *vsn_memory_name(vsn_memory mem)
 {
     switch (mem) {

@@ -128,3 +128,22 @@ function(vsn_add_vlc_plugin name)
     target_compile_options(${target} PRIVATE -Wall -Wextra -Wno-unused-parameter)
   endif()
 endfunction()
+
+# vsn_embed_text(<target> <input> <symbol>)
+#
+# Generates ${CMAKE_CURRENT_BINARY_DIR}/generated/<input name with '.' -> '_'>.h
+# holding `static const char <symbol>[]` with the file's contents, and adds it to <target>.
+function(vsn_embed_text target input symbol)
+  get_filename_component(abs "${input}" ABSOLUTE)
+  get_filename_component(name "${input}" NAME)
+  string(REPLACE "." "_" header "${name}")
+  set(out "${CMAKE_CURRENT_BINARY_DIR}/generated/${header}.h")
+  add_custom_command(
+    OUTPUT "${out}"
+    COMMAND "${CMAKE_COMMAND}" -DINPUT=${abs} -DOUTPUT=${out} -DNAME=${symbol}
+            -P "${PROJECT_SOURCE_DIR}/cmake/scripts/embed-text.cmake"
+    DEPENDS "${abs}" "${PROJECT_SOURCE_DIR}/cmake/scripts/embed-text.cmake"
+    COMMENT "Embedding ${name}")
+  target_sources(${target} PRIVATE "${out}")
+  target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+endfunction()

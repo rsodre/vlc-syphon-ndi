@@ -13,4 +13,13 @@
 #include <vlc_common.h>
 #include <vlc_plugin.h>
 
+// VLC defines these in vlc_fixups.h, which needs VLC's own config.h. Our strings are not
+// in VLC's translation catalog, so N_() only marks them and _() falls back to English.
+#ifndef N_
+# define N_(str) (str)
+#endif
+#ifndef _
+# define _(str) vlc_gettext(str)
+#endif
+
 #endif

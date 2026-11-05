@@ -33,6 +33,13 @@ typedef enum vsn_memory {
     VSN_MEMORY_D3D11,          /**< Windows Direct3D 11 frame; native is an ID3D11Texture2D */
 } vsn_memory;
 
+/** YCbCr matrix. Ignored for RGB formats. */
+typedef enum vsn_colorspace {
+    VSN_COLORSPACE_BT601 = 0,
+    VSN_COLORSPACE_BT709,
+    VSN_COLORSPACE_BT2020,
+} vsn_colorspace;
+
 #define VSN_MAX_PLANES 4
 
 typedef struct vsn_plane {
@@ -45,8 +52,12 @@ typedef struct vsn_frame {
     vsn_pixfmt pixfmt;
     vsn_memory memory;
     unsigned width, height;    /**< visible size in pixels */
+    unsigned x_offset, y_offset; /**< visible area origin inside a GPU buffer (CPU planes
+                                      already point at the visible area) */
     unsigned sar_num, sar_den; /**< sample aspect ratio, 1:1 if unknown */
     unsigned fps_num, fps_den; /**< frame rate, 0/0 if unknown */
+    vsn_colorspace colorspace;
+    bool full_range;           /**< YCbCr uses 0-255 instead of 16-235/240 */
     int64_t pts_us;            /**< presentation time in microseconds, host clock */
     int plane_count;           /**< 0 unless memory == VSN_MEMORY_CPU */
     vsn_plane planes[VSN_MAX_PLANES];
@@ -58,6 +69,9 @@ const char *vsn_pixfmt_name(vsn_pixfmt fmt);
 
 /** Short, stable name for logs ("cpu", "cvpixelbuffer", ...). */
 const char *vsn_memory_name(vsn_memory mem);
+
+/** Short, stable name for logs ("BT.709", ...). */
+const char *vsn_colorspace_name(vsn_colorspace cs);
 
 #ifdef __cplusplus
 }
