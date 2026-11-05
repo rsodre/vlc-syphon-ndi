@@ -16,8 +16,9 @@ Frames are published at the file's own resolution, not the window size.
 
 This project replaces [VLCSyphon](https://github.com/rsodre/VLCSyphon), which was a fork of VLC.
 
-> **Status:** early development. The **Syphon** and **NDI** plugins work with VLC 3.0.24 on macOS,
-> and the apps can be built locally. The first signed release is coming soon.
+> **Status:** first release, **v3.0.24-1** (macOS). Syphon and NDI work with VLC 3.0.24.
+> The NDI plugin also compiles for Windows and Linux but is untested there, and Spout (Windows)
+> is planned: [contributions welcome](#contributing).
 
 ## Requirements
 
@@ -40,14 +41,13 @@ This project replaces [VLCSyphon](https://github.com/rsodre/VLCSyphon), which wa
 
 ## Download
 
-Everything will be on the [GitHub Releases](https://github.com/rsodre/vlc-syphon-ndi/releases) page
-(coming soon):
+Everything is on the [GitHub Releases](https://github.com/rsodre/vlc-syphon-ndi/releases) page:
 
 | App | What it is |
 |---|---|
 | **VLCSyphon.app** | VLC 3.0.24 with all plugins installed, **Syphon on** by default |
 | **VLCNDI.app** | VLC 3.0.24 with all plugins installed, **NDI on** by default |
-| **Plugin zips** | Just the plugins, per platform, to add to the official VLC ([install](#install-the-plugins-into-an-existing-vlc)) |
+| **Plugin zip (macOS)** | Just the plugins, to add to the official VLC ([install](#install-the-plugins-into-an-existing-vlc)) |
 
 Both apps are the official VLC with every plugin added, so you can turn Syphon and NDI on or
 off in either one. Each app keeps its own settings, separate from the official VLC. They are

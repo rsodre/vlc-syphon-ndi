@@ -179,7 +179,7 @@ Two ways to ship:
       `VLC_PLUGIN_PATH` and gets GPU (CVPX) frames. Details: [PHASE0.md](PHASE0.md).
       - [ ] Windows load test (needs a Windows machine or contributor).
       - [ ] Linux load test.
-      - [ ] Confirm the CI workflow passes on all three platforms after the first push.
+      - [x] CI build check passes on macOS, Linux (gcc) and Windows (MinGW cross).
 - [x] **Phase 1 – Syphon filter (macOS):** Metal server, CVPX zero-copy path, CPU fallback,
       options `syphon-name` and `syphon-square-pixels` (enabling is VLC's own filter list).
       End-to-end tests in `scripts/test-syphon-macos.sh` (8 cases), also checked in the VLC GUI.
@@ -199,8 +199,9 @@ Two ways to ship:
       real audio output. DMGs, plugin zip, VLC source and checksums from
       `apps/scripts/release-macos.sh`, published as a draft by `apps/scripts/publish-release.sh`.
       Releases are built locally (maintainer's choice; the release CI was removed).
-      - [ ] Developer ID certificate + notarytool profile (maintainer), then the first signed
-            release and notarization run.
+      - [x] Developer ID certificate (Studio Avante LTDA, N7372UPM43; **expires 2027-02-01**,
+            renew before the next release after that) + notarytool profile `vsn-notary`.
+      - [ ] First signed release v3.0.24-1.
       - [ ] Manual checklist: docs/TESTING-APPS.md.
       (Original notes: VLCNDI.app must default both `video-filter` and
       `audio-filter` to `ndi`; keep VLC's `disable-library-validation` entitlement, which is what lets
