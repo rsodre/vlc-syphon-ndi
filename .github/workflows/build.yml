@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Builds every plugin on each platform. Packaging, signing and notarization are Phase 3.
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install ninja || true
+      - run: cmake --preset macos
+      - run: cmake --build --preset macos
+      - run: lipo -info build/macos/out/plugins/*.dylib
+      - uses: actions/upload-artifact@v4
+        with: { name: plugins-macos, path: build/macos/out/plugins }
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - run: cmake --preset linux
+      - run: cmake --build --preset linux
+      - uses: actions/upload-artifact@v4
+        with: { name: plugins-linux-x86_64, path: build/linux/out/plugins }
+
+  windows-mingw:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build mingw-w64
+      - run: cmake --preset windows-mingw
+      - run: cmake --build --preset windows-mingw
+      - uses: actions/upload-artifact@v4
+        with: { name: plugins-windows-x64, path: build/windows-mingw/out/plugins }
