@@ -38,8 +38,16 @@ These answer the earlier open questions and set the working rules.
   - **VLCNDI.app**: NDI on by default. Same icon, tinted NDI blue.
   - Both contain **all** plugins. Users switch them the regular VLC way (Preferences ▸ Video ▸
     Filters, or `--video-filter`).
-  - Plugin-only downloads for people who use the official VLC are likely too, but not decided
-    (see Open questions).
+  - Published as **GitHub Releases**: both apps (DMGs) plus plugin zips per platform. Plugin users
+    follow the usual VLC plugin instructions in the README (on macOS, `VLC_PLUGIN_PATH` is recommended).
+  - The default filter comes from a small VLC patch that reads it from the app's **Info.plist**
+    (one VLC build for both apps), not from two libvlccore builds.
+- **Windows toolchain: MinGW-w64** (llvm-mingw or MSYS2), the same as VLC's own Windows builds.
+  VLC's headers assume GCC/Clang. Spout2's DirectX 11 sender code builds with MinGW too.
+- **VideoLAN addons site:** addons.videolan.org exists, but as far as we know it hosts Lua
+  extensions, skins and playlist parsers. VLC's built-in addon manager doesn't install native
+  plugins. Optionally list the project there with a link to GitHub Releases (Phase 3), and later
+  offer the plugins to VideoLAN upstream (they are LGPL for that reason).
 - **Branding:** the maintainer keeps the "VLC…" names and the cone-derived icon, knowingly
   accepting the trademark risk described under Licensing. Revisit if VideoLAN objects.
 - **Not a Node project.** No package.json or pnpm workspace. C/Objective-C with CMake.
@@ -113,9 +121,8 @@ Two ways to ship:
 2. **Signed and notarized bundled apps** (VLCSyphon.app and VLCNDI.app, see Decisions):
    - Build official VLC 3.0.24 plus a **one-line patch**: in `src/libvlc-module.c`, change
      the `video-filter` default from `NULL` to `"syphon"` (VLCSyphon) or `"ndi"` (VLCNDI).
-     This keeps the user's own Preferences in control. Because the default is compiled into
-     libvlccore, the two apps need two libvlccore builds (everything else can be shared), or a
-     patch that reads the default from the bundle's Info.plist. Decide in Phase 3.
+     This keeps the user's own Preferences in control. **Decided:** one VLC build for both apps,
+     with a small patch that reads the default from a key in the bundle's Info.plist.
    - **Don't** inject arguments in `bin/darwinvlc.m`. Command-line arguments override user
      preferences, so users couldn't turn the filter off.
    - Build arm64 and x86_64 separately and merge with `lipo`.
@@ -151,8 +158,11 @@ Two ways to ship:
       - [ ] Windows load test (needs a Windows machine or contributor).
       - [ ] Linux load test.
       - [ ] Confirm the CI workflow passes on all three platforms after the first push.
-- [ ] **Phase 1 – Syphon filter (macOS):** Metal server, CVPX zero-copy path, CPU fallback, options
-      (server name, enable).
+- [x] **Phase 1 – Syphon filter (macOS):** Metal server, CVPX zero-copy path, CPU fallback,
+      options `syphon-name` and `syphon-square-pixels` (enabling is VLC's own filter list).
+      End-to-end tests in `scripts/test-syphon-macos.sh` (8 cases), also checked in the VLC GUI.
+      Details: [plugins/syphon/README.md](../plugins/syphon/README.md).
+      - [ ] Later: HDR (PQ/HLG) tone mapping.
 - [ ] **Phase 2 – NDI video + audio filters:** load the runtime at startup; show a clear message if
       it's missing.
 - [ ] **Phase 3 – Packaging:** VLCSyphon.app and VLCNDI.app (signed, notarized, DMG), plugin-only
@@ -162,9 +172,8 @@ Two ways to ship:
 
 ### Open questions
 
-- Phase 3: two libvlccore builds, or one patched build that reads the default filter from Info.plist?
-- Phase 3: plugin-only macOS install: `VLC_PLUGIN_PATH` launcher, `.pkg` drop-in, or docs only?
-- Windows compiler: MinGW-w64 (VLC's own toolchain, CI uses it) or MSVC? Spout2 is MSVC-first.
+- Phase 3: the exact Info.plist key name and how VLCSyphon/VLCNDI keep separate preference folders.
+- Phase 3: list the project on addons.videolan.org?
 
 ## Sources
 

@@ -12,6 +12,10 @@ Users switch filters the regular VLC way (Preferences ▸ Video ▸ Filters, or
 `--video-filter`). The default is a preference default, not a command-line argument,
 so the user's own choice always wins.
 
+Both apps come from **one** VLC 3.0.24 build with a small patch: the `video-filter` default is
+read from a key in the app's Info.plist. They are published on GitHub Releases as DMGs, next to
+the plugin-only zips.
+
 - `resources/icons/` — `VLCSyphon.icns`/`.png` come from the legacy
   [rsodre/VLCSyphon](https://github.com/rsodre/VLCSyphon) repo. `VLCNDI.*` is generated
   from them by `scripts/make-icons.sh` (hue rotation).

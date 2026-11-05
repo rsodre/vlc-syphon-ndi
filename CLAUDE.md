@@ -15,6 +15,9 @@ decisions, phased to-do list), then `docs/PHASE0.md` (feasibility results).
 - Never bundle or commit the NDI runtime. Load `libndi` at runtime from the user's NDI Runtime install.
 - License: LGPL-2.1-or-later. Put an SPDX header and copyright line in every source file.
 - Universal macOS binaries (arm64 + x86_64), minimum macOS 11.0 (same as official VLC).
+  The NDI 6 runtime needs macOS 13. Keep the README's Requirements table current.
+- Windows toolchain: MinGW-w64. Releases: GitHub Releases (two apps + plugin zips).
+  Default filter in each app: read from Info.plist by a small VLC patch.
 - Not a Node project: C/Objective-C with CMake (presets: `macos`, `linux`, `windows-mingw`).
 - Deliverables: `VLCSyphon.app` (Syphon on by default) and `VLCNDI.app` (NDI on by default,
   NDI-blue icon), both with all plugins, signed and notarized with the maintainer's Apple
@@ -23,7 +26,8 @@ decisions, phased to-do list), then `docs/PHASE0.md` (feasibility results).
 ## Working rules
 
 - **Organization:** one folder per plugin under `plugins/<name>/`; code used by more than one
-  plugin goes in `shared/`. Every project keeps its sources in its own `src/` folder.
+  plugin goes in `shared/`; developer tools in `tools/<name>/`. Every project keeps its sources
+  in its own `src/` folder.
 - **Ask before installing anything** (Homebrew packages, toolchains, SDKs, apps).
 - **Ask before design or architecture decisions**, and offer suggestions.
 - **README.md is for humans:** keep install / enable / use, project structure, build and
@@ -36,7 +40,11 @@ decisions, phased to-do list), then `docs/PHASE0.md` (feasibility results).
 ```sh
 cmake --preset macos && cmake --build --preset macos   # -> build/macos/out/plugins/
 scripts/test-load-macos.sh hello                        # loads it in /Applications/VLC.app via VLC_PLUGIN_PATH
+scripts/test-syphon-macos.sh                            # Syphon end to end (uses tools/syphon-probe)
 ```
+
+`VLC_PLUGIN_PATH` must be an absolute path. On macOS, a visible video window needs `-I macosx`;
+with `-I dummy` use `--vout dummy`.
 
 macOS App Management blocks writes into `/Applications/VLC.app`. Don't try to work around it.
 
