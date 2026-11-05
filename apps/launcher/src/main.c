@@ -10,7 +10,8 @@
 //   1. On first launch only, it writes a vlcrc in the app's own preferences folder,
 //      ~/Library/Preferences/<bundle id>/vlcrc (VLC 3 names that folder after the
 //      bundle id), turning on the filters named by the Info.plist keys
-//      VSNDefaultVideoFilter and VSNDefaultAudioFilter.
+//      VSNDefaultVideoFilter and VSNDefaultAudioFilter, plus any "name=value" core
+//      options listed in VSNDefaultCoreOptions (e.g. play-and-pause=1).
 //   2. It replaces itself (execv) with VLC's own executable, Contents/MacOS/VLC,
 //      passing all arguments through. Same process, so Finder and Apple Events work.
 //
@@ -56,6 +57,28 @@ static int mkdir_p(const char *path)
     return mkdir(tmp, 0700) != 0 && errno != EEXIST ? -1 : 0;
 }
 
+// Writes each "name=value" string of the Info.plist array `key` as a line.
+static int write_core_options(FILE *f, CFBundleRef bundle, const char *key)
+{
+    CFStringRef k = CFStringCreateWithCString(NULL, key, kCFStringEncodingUTF8);
+    CFTypeRef v = CFBundleGetValueForInfoDictionaryKey(bundle, k);
+    CFRelease(k);
+    if (!v || CFGetTypeID(v) != CFArrayGetTypeID())
+        return 0;
+    int n = 0;
+    for (CFIndex i = 0; i < CFArrayGetCount(v); i++) {
+        CFTypeRef item = CFArrayGetValueAtIndex(v, i);
+        char line[512];
+        if (CFGetTypeID(item) == CFStringGetTypeID()
+            && CFStringGetCString(item, line, sizeof(line), kCFStringEncodingUTF8)
+            && strchr(line, '=') && !strchr(line, '\n')) {
+            fprintf(f, "%s\n", line);
+            n++;
+        }
+    }
+    return n;
+}
+
 // Writes the first-run vlcrc. Never touches an existing one.
 static void seed_preferences(CFBundleRef bundle)
 {
@@ -67,7 +90,8 @@ static void seed_preferences(CFBundleRef bundle)
     char idbuf[256];
     if (cfid && CFStringGetCString(cfid, idbuf, sizeof(idbuf), kCFStringEncodingUTF8))
         id = idbuf;
-    if (!home || !id || (!vf && !af))
+    CFTypeRef opts = CFBundleGetValueForInfoDictionaryKey(bundle, CFSTR("VSNDefaultCoreOptions"));
+    if (!home || !id || (!vf && !af && !opts))
         goto out;
 
     char dir[PATH_MAX], path[PATH_MAX];
@@ -85,8 +109,9 @@ static void seed_preferences(CFBundleRef bundle)
         goto out;
     }
     fprintf(f, "###\n### Created by %s on first launch: VLC's defaults plus this app's\n"
-               "### default filters. VLC rewrites this file when preferences are saved.\n###\n\n"
+               "### defaults. VLC rewrites this file when preferences are saved.\n###\n\n"
                "[core] # core program\n", name ? name : "the app");
+    write_core_options(f, bundle, "VSNDefaultCoreOptions");
     if (vf)
         fprintf(f, "video-filter=%s\n", vf);
     if (af)

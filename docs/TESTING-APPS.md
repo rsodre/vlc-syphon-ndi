@@ -25,17 +25,20 @@ defaults delete $id; rm -rf ~/Library/Preferences/$id ~/Library/Application\ Sup
 - [ ] Preferences ▸ Show All ▸ Video ▸ Filters: **Syphon** is ticked. Untick, Save, quit,
       relaunch: the server is gone. Tick it again: it's back.
 - [ ] Preferences ▸ Video ▸ Filters ▸ Syphon: change the server name; clients show the new name.
+- [ ] At the end of a file, the video stays on its last frame and Syphon clients keep it
+      (Play and pause is on by default in both apps).
 - [ ] The official VLC (if installed) is unaffected: no Syphon, its settings unchanged.
 - [ ] The menu bar and Dock show VLCSyphon with the orange icon. "Check for Updates" never
       replaces the app with plain VLC (expect an error).
 
 ## VLCNDI.app, before installing the NDI runtime
 
-- [ ] Play a video. VLC shows **one** error: "NDI 6 runtime not found … Install it from
-      https://ndi.video/tools/". Playback continues normally.
+- [ ] Play a video. VLC shows **one** error: "NDI 6 Runtime not found … Install the NDI Runtime
+      from http://ndi.link/NDIRedistV6Apple (NDI Tools alone is not enough …)". Playback continues normally.
+- [ ] With NDI Tools installed but not the runtime: same error (NDI Tools doesn't install one).
 - [ ] Open a second file in the same session: no second error.
 
-## VLCNDI.app, after installing NDI Tools (https://ndi.video/tools/)
+## VLCNDI.app, after installing the NDI Runtime (http://ndi.link/NDIRedistV6Apple)
 
 - [ ] macOS asks to allow VLCNDI on the local network: Allow.
 - [ ] Play a video with sound. NDI Studio Monitor / NDI Video Monitor (from NDI Tools), OBS

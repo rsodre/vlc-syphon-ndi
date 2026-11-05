@@ -70,6 +70,7 @@ sign_contents() {
 }
 
 package_app() {
+  DEFAULT_CORE_OPTIONS=()
   # shellcheck disable=SC1090
   source "$1"
   local app="$OUT/$APP_NAME.app" plist
@@ -89,11 +90,20 @@ package_app() {
   $PB -c "Add :CFBundleDisplayName string $APP_NAME" "$plist"
   $PB -c "Delete :NSHumanReadableCopyright" "$plist" 2>/dev/null || true
   $PB -c "Add :NSHumanReadableCopyright string $APP_NAME $VLC_VERSION-$BUILD_NUMBER, based on VLC media player by VideoLAN (GPLv2). Syphon and NDI plugins: Roger Sodre and vlc-syphon-ndi contributors (LGPL-2.1+). Not made or endorsed by VideoLAN." "$plist"
-  cp "$ROOT/apps/resources/icons/$ICON" "$app/Contents/Resources/$ICON"
+  # Icon: CFBundleIconName (VLC's asset-catalog cone) wins over CFBundleIconFile, so drop
+  # it. VLC also shows VLC.icns / VLC-Xmas.icns (About window, Christmas Dock icon).
+  $PB -c "Delete :CFBundleIconName" "$plist" 2>/dev/null || true
+  for f in "$ICON" VLC.icns VLC-Xmas.icns; do
+    cp "$ROOT/apps/resources/icons/$ICON" "$app/Contents/Resources/$f"
+  done
 
   # Default filters, read by the launcher on first launch.
   $PB -c "Add :VSNDefaultVideoFilter string $DEFAULT_VIDEO_FILTER" \
-      -c "Add :VSNDefaultAudioFilter string $DEFAULT_AUDIO_FILTER" "$plist"
+      -c "Add :VSNDefaultAudioFilter string $DEFAULT_AUDIO_FILTER" \
+      -c "Add :VSNDefaultCoreOptions array" "$plist"
+  for i in "${!DEFAULT_CORE_OPTIONS[@]}"; do
+    $PB -c "Add :VSNDefaultCoreOptions:$i string ${DEFAULT_CORE_OPTIONS[$i]}" "$plist"
+  done
 
   # NDI uses the local network (macOS asks the user once).
   $PB -c "Add :NSLocalNetworkUsageDescription string $APP_NAME uses the local network to send video and audio with NDI." \

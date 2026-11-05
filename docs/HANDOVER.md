@@ -47,6 +47,10 @@ These answer the earlier open questions and set the working rules.
     has its own settings without any patch. Versions are `3.0.24 (3.0.24.N)`, and tags are `v3.0.24-N`.
 - **Windows toolchain: MinGW-w64** (llvm-mingw or MSYS2), the same as VLC's own Windows builds.
   VLC's headers assume GCC/Clang. Spout2's DirectX 11 sender code builds with MinGW too.
+- **NDI runtime on macOS:** NDI Tools for Mac does not install a shared runtime (each app embeds
+  `libndi` privately). Users need `libNDI_for_Mac.pkg` (http://ndi.link/NDIRedistV6Apple), which installs
+  `/usr/local/lib/libndi.dylib`. Error messages and docs point there. Loading the copy inside
+  an NDI Tools app was considered and not done: it's another app's private file.
 - **NDI colours:** the NDI 6.3.2 SDK receiver decodes every resolution as BT.709 limited range,
   although NDI's docs say BT.601 for SD. The sender normalises to BT.709 by default
   (`--ndi-bt709`, can be turned off).
@@ -191,8 +195,7 @@ Two ways to ship:
       - [ ] Manual checklist: docs/TESTING-APPS.md.
       (Original notes: VLCNDI.app must default both `video-filter` and
       `audio-filter` to `ndi`; keep VLC's `disable-library-validation` entitlement, which is what lets
-      the NDI runtime from `/usr/local/lib` load; add `NSLocalNetworkUsageDescription` to Info.plist) VLCSyphon.app and VLCNDI.app (signed, notarized, DMG), plugin-only
-      zips, and a GitHub Actions release workflow (see Distribution).
+      the NDI runtime from `/usr/local/lib` load; add `NSLocalNetworkUsageDescription` to Info.plist.)
 - [ ] **Phase 4 – Spout (Windows).**
 - [ ] **Phase 5 – VLC 4 adapter** once 4.0 is stable.
 

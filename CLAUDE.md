@@ -18,8 +18,8 @@ decisions, phased to-do list), then `docs/PHASE0.md` (feasibility results).
   The NDI 6 runtime needs macOS 13. Keep the README's Requirements table current.
 - Windows toolchain: MinGW-w64. Releases: GitHub Releases (two apps + plugin zips).
 - The apps are the **official VLC.app repackaged**, with no VLC code changed or compiled.
-  The apps/launcher seeds default filters from Info.plist (`VSNDefault{Video,Audio}Filter`) on
-  first launch. Bundle IDs are `com.studioavante.*`, and versions are `<vlc>-<build>` (tag `v3.0.24-1`).
+  The apps/launcher seeds defaults from Info.plist (`VSNDefault{Video,Audio}Filter`,
+  `VSNDefaultCoreOptions`, e.g. `play-and-pause=1`), set in `apps/<App>/app.conf`, on first launch. Bundle IDs are `com.studioavante.*`, and versions are `<vlc>-<build>` (tag `v3.0.24-1`).
 - Not a Node project: C/Objective-C with CMake (presets: `macos`, `linux`, `windows-mingw`).
 - Deliverables: `VLCSyphon.app` (Syphon on by default) and `VLCNDI.app` (NDI on by default,
   NDI-blue icon), both with all plugins, signed and notarized with the maintainer's Apple

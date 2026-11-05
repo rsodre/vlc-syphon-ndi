@@ -22,16 +22,18 @@ same name (`--ndi-name` sets it for both).
 
 ## NDI runtime
 
-The NDI runtime is proprietary, so it is never bundled. Users install it from
-<https://ndi.video/tools/>. The plugin loads it on the first frame, from:
+The NDI runtime is proprietary, so it is never bundled. Users install it: on macOS
+[libNDI for Mac](http://ndi.link/NDIRedistV6Apple) (NDI Tools for Mac does **not** install a shared runtime; each of
+its apps embeds a private copy), on Windows the [NDI 6 Runtime](http://ndi.link/NDIRedistV6). The plugin loads it on
+the first frame, from:
 
 1. `$NDI_RUNTIME_DIR_V6/` (set by the Windows installer; handy for testing with an SDK copy)
 2. macOS: `/usr/local/lib/libndi.dylib`, `/Library/NDI SDK for Apple/lib/macOS/`;
    Linux: `libndi.so.6` on the library path, `/usr/local/lib`, `/usr/lib`;
    Windows: `Processing.NDI.Lib.x64.dll` on the DLL search path
 
-If it isn't found, VLC shows an error once ("NDI 6 runtime not found … Install it from
-https://ndi.video/tools/") and keeps playing without NDI.
+If it isn't found, VLC shows an error once ("NDI 6 Runtime not found … Install the NDI Runtime
+from <NDI's link for the platform>") and keeps playing without NDI.
 
 ## How it works
 

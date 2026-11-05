@@ -33,7 +33,9 @@ This project replaces [VLCSyphon](https://github.com/rsodre/VLCSyphon), which wa
   video stays on the GPU; other video is uploaded from the CPU, which costs more for 4K.
 - **Syphon clients:** any Syphon-enabled app (Resolume, MadMapper, TouchDesigner, OBS with a Syphon
   plugin, …). Metal and OpenGL clients both work.
-- **NDI:** the free [NDI Runtime](https://ndi.video/tools/) must be installed. A wired network is
+- **NDI:** the free **NDI Runtime** must be installed ([macOS](http://ndi.link/NDIRedistV6Apple), [Windows](http://ndi.link/NDIRedistV6);
+  Linux: `libndi.so.6` from the [NDI SDK](https://ndi.video/for-developers/ndi-sdk/)). On macOS,
+  installing NDI Tools is not enough: its apps carry private copies. A wired network is
   recommended for HD and above.
 
 ## Download
@@ -54,6 +56,10 @@ new versions from Releases.
 
 Install: open the DMG and drag the app to Applications. On first launch VLC asks its usual
 privacy question.
+
+Both apps start with **Play and pause** on: at the end of a file, VLC stops on the last frame
+instead of closing the video, so Syphon and NDI keep showing it. Change it in Preferences ▸
+Show All ▸ Playlist ▸ "Play and pause" (or `--play-and-pause` in any VLC).
 
 ## Use
 
@@ -98,9 +104,15 @@ In **Preferences** ▸ **Show All** ▸ **Video** ▸ **Filters** ▸ **NDI**, o
 ### NDI needs the NDI Runtime
 
 The NDI plugin uses the free NDI Runtime, which you install yourself. It isn't included here.
-Download **NDI Tools** or the runtime from <https://ndi.video/tools/>. Without it, VLC shows an
-error once and keeps playing without NDI. If the runtime is somewhere unusual, set
-`NDI_RUNTIME_DIR_V6` to its folder.
+
+- **macOS:** install [libNDI for Mac](http://ndi.link/NDIRedistV6Apple) (`libNDI_for_Mac.pkg`, it puts
+  `libndi.dylib` in `/usr/local/lib`). **NDI Tools alone is not enough**: its apps keep their own
+  private copies of the runtime. Install NDI Tools as well if you want its monitor apps to view the output.
+- **Windows:** install the [NDI 6 Runtime](http://ndi.link/NDIRedistV6) (NDI Tools includes it).
+- **Linux:** install `libndi.so.6` from the NDI SDK into your library path.
+
+Without it, VLC shows an error once and keeps playing without NDI. If the runtime is somewhere
+unusual, set `NDI_RUNTIME_DIR_V6` to its folder.
 
 On macOS, allow VLC to access the local network (and through the firewall) when it asks.
 

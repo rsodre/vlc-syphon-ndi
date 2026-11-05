@@ -9,6 +9,10 @@ by default:
 | `VLCSyphon.app` | `com.studioavante.vlcsyphon` | `video-filter=syphon` | `resources/icons/VLCSyphon.icns` (orange) |
 | `VLCNDI.app` | `com.studioavante.vlcndi` | `video-filter=ndi`, `audio-filter=ndi` | `resources/icons/VLCNDI.icns` (NDI blue) |
 
+Both apps also start with **Play and pause** on: at the end of a file VLC stops on the last
+frame instead of closing the video, so Syphon and NDI keep showing it. The defaults live in
+each app's `app.conf`.
+
 Users switch filters the regular VLC way (Preferences ▸ Show All ▸ Video/Audio ▸ Filters).
 Versions follow VLC: `3.0.24 (3.0.24.N)`, released as tag `v3.0.24-N`.
 
@@ -18,11 +22,15 @@ Versions follow VLC: `3.0.24 (3.0.24.N)`, released as tag `v3.0.24-N`.
 `scripts/fetch-vlc-app.sh`: VideoLAN's SHA-256 and Developer ID signature) and:
 
 1. **Renames it:** Info.plist name, bundle ID, icon, version, copyright ("based on VLC").
+   The icon replaces `CFBundleIconFile`, `VLC.icns` and `VLC-Xmas.icns`, and `CFBundleIconName`
+   (VLC's asset-catalog cone, which would win) is removed.
    VLC 3 names its preferences, data and cache folders after the bundle ID, so each app
    has its own settings, separate from the official VLC.
 2. **Sets the default filters** with a tiny launcher (`launcher/src/main.c`) that becomes the
    bundle's executable. On first launch only, it writes the app's `vlcrc` with the filters
-   named in the Info.plist keys `VSNDefaultVideoFilter` / `VSNDefaultAudioFilter`, then
+   named in the Info.plist keys `VSNDefaultVideoFilter` / `VSNDefaultAudioFilter` and the
+   `option=value` lines in `VSNDefaultCoreOptions` (both apps: `play-and-pause=1`, which stops on
+   the last frame at the end of a file so the window, Syphon and NDI keep it), then
    `exec`s VLC's own executable. After that they are ordinary preferences. No command-line
    options are injected, so the user's choices always win.
    Note: VLC's "Reset Preferences" writes VLC's own defaults, so the filter is off afterwards.

@@ -19,7 +19,7 @@ typedef const NDIlib_v6 *(*load_fn)(void);
 // Default install locations, tried after $NDI_RUNTIME_DIR_V6.
 static const char *const default_paths[] = {
 #if defined(__APPLE__)
-    "/usr/local/lib/" NDILIB_LIBRARY_NAME,                   // NDI Runtime / NDI Tools installer
+    "/usr/local/lib/" NDILIB_LIBRARY_NAME,                   // libNDI_for_Mac.pkg (NDI Runtime)
     "/Library/NDI SDK for Apple/lib/macOS/" NDILIB_LIBRARY_NAME,
     NDILIB_LIBRARY_NAME,                                      // dyld default search
 #elif defined(_WIN32)
@@ -109,8 +109,14 @@ const NDIlib_v6 *vsn_ndi_load(char *err, size_t err_size)
 
     if (!lib) {
         if (err)
-            snprintf(err, err_size, "NDI 6 runtime not found (tried: %s). Install it from %s",
-                     tried, vsn_ndi_runtime_url());
+            snprintf(err, err_size, "NDI 6 Runtime not found (tried: %s). Install the NDI Runtime "
+                     "from %s%s", tried, vsn_ndi_runtime_url(),
+#ifdef __APPLE__
+                     " (NDI Tools alone is not enough: its apps keep private copies of the runtime)."
+#else
+                     "."
+#endif
+                     );
     } else if (!lib->initialize()) {
         if (err)
             snprintf(err, err_size, "NDI runtime at %s failed to initialize (unsupported CPU?)", path);
@@ -130,5 +136,9 @@ const char *vsn_ndi_runtime_path(void)
 
 const char *vsn_ndi_runtime_url(void)
 {
+    // NDI's own redistributable links (Processing.NDI.Lib.h). On macOS this is the
+    // runtime installer, libNDI_for_Mac.pkg, which installs /usr/local/lib/libndi.dylib.
+    if (NDILIB_REDIST_URL[0])
+        return NDILIB_REDIST_URL;
     return "https://ndi.video/tools/";
 }

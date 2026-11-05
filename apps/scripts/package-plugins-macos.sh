@@ -25,8 +25,8 @@ cp "$BUILD_DIR"/out/plugins/lib{syphon,ndi}_plugin.dylib "$stage/plugins/"
 ditto "$ROOT/third_party/syphon/darwin/Syphon.framework" "$stage/plugins/Syphon.framework"
 codesign "${flags[@]}" "$stage/plugins/Syphon.framework" "$stage"/plugins/*.dylib
 cat > "$stage/INSTALL.txt" <<'TXT'
-vlc-syphon-ndi plugins for VLC 3.0.x on macOS (11 or later; NDI needs macOS 13 and the
-NDI Runtime from https://ndi.video/tools/).
+vlc-syphon-ndi plugins for VLC 3.0.x on macOS (11 or later). NDI needs macOS 13 and the
+NDI Runtime, libNDI_for_Mac.pkg from http://ndi.link/NDIRedistV6Apple (NDI Tools alone is not enough).
 
 Keep the three items in plugins/ together. Recommended: leave VLC.app untouched and
 start VLC with the plugin folder:
