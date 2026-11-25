@@ -32,17 +32,28 @@ output, which VLC has since reworked, and every VLC upgrade means a manual rebas
   source, SHA256SUMS. Signed (Studio Avante LTDA, N7372UPM43) and notarized. The release was
   rebuilt in place once to fix upside-down Syphon frames: the tag was moved to `a78c60a` and the
   files were replaced, keeping the maintainer's edited description (copy in
-  `build/release-notes/v3.0.24-1.md`, not in git).
+  `build/release-notes/v3.0.24-1.md`, not in git). On 2026-11-25 the tag was moved again, to the
+  commit the Windows files were built from; the macOS files were not rebuilt (no macOS code
+  changed).
 - **Releases are local:** `apps/scripts/release-macos.sh <build>`, then
   `apps/scripts/publish-release.sh <build>` (draft). See apps/README.md.
+- **Windows (2026-11-25):** the NDI plugin is built and tested on Windows 10 (7 cases in
+  `scripts/test-ndi-windows.sh`: colours, 30 fps, A/V offset about +10 ms, Direct3D 11 and
+  software decoding). **VLCNDI for Windows** is a portable zip made from VideoLAN's
+  `vlc-3.0.24-win64.zip` (see [Windows decisions](#windows-decisions-2026-11-25) and
+  apps/README.md), added to release v3.0.24-1 together with a Windows plugin zip. Not signed.
+  Built on the maintainer's Windows PC with portable tools in `Documents\Dev\tools` (llvm-mingw
+  msvcrt, CMake, Ninja, gh, ffmpeg), none of them in `PATH`.
 - **Follow-ups:**
+  - Windows: a native Direct3D 11 input path for NDI (VLC's converters copy GPU frames to the
+    CPU and back today), code signing (no certificate), and third-party receivers.
   - `../VLCSyphon` (archived repo): README note "use vlc-syphon-ndi instead" is committed locally
     on branch `Syphon` but not pushed. That needs unarchive, push, re-archive (maintainer to approve).
   - Developer ID certificate **expires 2027-02-01**: renew before the next release after that.
   - `.github/workflows/build.yml` uses actions targeting Node 20 (deprecated): bump
     `actions/checkout` and `actions/upload-artifact`.
   - Not yet verified: NDI with third-party receivers (OBS/DistroAV, vMix, NDI Studio Monitor) and
-    real audio output; NDI on Windows/Linux (compiles in CI only).
+    real audio output; NDI on Linux (compiles in CI only).
   - Later: HDR tone mapping, Phase 4 (Spout), Phase 5 (VLC 4), addons.videolan.org listing.
 - **Lesson:** Syphon frames are bottom row first (OpenGL convention). Publish top-down Metal
   textures with `flipped:YES`, and test with an OpenGL client read (`syphon-probe` default), not
@@ -104,6 +115,28 @@ These answer the earlier open questions and set the working rules.
   ship (icons) were copied.
 - **Process:** ask the maintainer before installing anything, and before any design or
   architecture decision (with suggestions). The README is for humans: keep it current.
+
+## Windows decisions (2026-11-25)
+
+- **Package:** a portable zip (`VLCNDI-<v>-win64.zip`, folder `VLCNDI\`), no installer. The
+  official VLC win64 zip, unmodified, plus the NDI plugin and the launcher `VLCNDI.exe`.
+- **Settings:** VLC for Windows keeps everything in `%APPDATA%\vlc`, whatever the app is called.
+  VLCNDI uses VLC's own portable mode instead: a `portable` folder next to `vlc.exe`, created by
+  the launcher, which also seeds `portable\vlcrc` on first launch. No command-line options. The
+  folder must be writable (not Program Files).
+- **Plugin cache:** the launcher runs VLC's `vlc-cache-gen.exe` when `plugins\plugins.dat` is
+  missing. A cache shipped in the zip would be stale after unzipping (it records file dates).
+- **Toolchain:** MinGW-w64 targeting **msvcrt**, like VLC 3 itself (libvlccore.dll imports
+  msvcrt.dll). A UCRT toolchain would give the plugin a different C runtime than VLC, and memory
+  allocated on one side is freed on the other. Plugins link the MinGW runtime statically
+  (`-static`): the first build needed `libwinpthread-1.dll`, which VLC doesn't ship.
+- **Not signed:** no Windows code-signing certificate. SmartScreen warns on first run.
+- **Can't be disconnected without changing VLC:** the crash reporter (asks before sending to
+  VideoLAN; dumps in `%APPDATA%\vlc\crashdump`). Update checks are off through `qt-updates-notif=0`.
+- **Lesson:** on Windows, don't test with `--vout dummy`. Direct3D 11 hardware decoding needs a
+  real video output; with the dummy one VLC 3.0.24 fails to convert the frames and crashes in
+  D3D11 (seen in the event log, without any frame reaching our filter). After a crash VLC shows
+  a "VLC just crashed" question at its next start, which blocks scripted runs.
 
 ## Research findings (Nov 2026)
 
@@ -199,7 +232,7 @@ Two ways to ship:
 - [x] **Phase 0 – Feasibility test (go/no-go): GO on macOS.** CMake project, `hello` pass-through
       filter built against vendored VLC 3.0.24 headers, loads in the official VLC.app via
       `VLC_PLUGIN_PATH` and gets GPU (CVPX) frames. Details: [PHASE0.md](PHASE0.md).
-      - [ ] Windows load test (needs a Windows machine or contributor).
+      - [x] Windows load test (2026-11-25: loads in the official VLC 3.0.24 win64).
       - [ ] Linux load test.
       - [x] CI build check passes on macOS, Linux (gcc) and Windows (MinGW cross).
 - [x] **Phase 1 – Syphon filter (macOS):** Metal server, CVPX zero-copy path, CPU fallback,
@@ -212,7 +245,8 @@ Two ways to ship:
       Frames are sent at their presentation time by a worker thread (A/V offset ~+14 ms).
       SD/full-range colours normalised to BT.709 (`--ndi-bt709`). Tests: `scripts/test-ndi-macos.sh`
       (7 cases). Details: [plugins/ndi/README.md](../plugins/ndi/README.md).
-      - [ ] Run on Windows and Linux (contributors).
+      - [x] Run on Windows (2026-11-25, `scripts/test-ndi-windows.sh`).
+      - [ ] Run on Linux (contributors).
       - [ ] Test with a real audio output and with third-party receivers (OBS/DistroAV, vMix, NDI Studio Monitor).
 - [x] **Phase 3 – Packaging (macOS):** official VLC 3.0.24 universal repackaged into
       VLCSyphon.app / VLCNDI.app (launcher seeds default filters; per-app settings; Breakpad
@@ -228,6 +262,11 @@ Two ways to ship:
       (Original notes: VLCNDI.app must default both `video-filter` and
       `audio-filter` to `ndi`; keep VLC's `disable-library-validation` entitlement, which is what lets
       the NDI runtime from `/usr/local/lib` load; add `NSLocalNetworkUsageDescription` to Info.plist.)
+- [x] **Phase 3b – Packaging (Windows):** VLCNDI portable zip and Windows plugin zip
+      (`apps/scripts/release-windows.sh`, `publish-windows.sh`), tested on Windows 10: first
+      launch seeds the settings and the plugin cache, idle source up, picture and sound through
+      the app, installed VLC's settings untouched.
+      - [ ] Manual checklist: docs/TESTING-APPS.md (Windows section).
 - [ ] **Phase 4 – Spout (Windows).**
 - [ ] **Phase 5 – VLC 4 adapter** once 4.0 is stable.
 

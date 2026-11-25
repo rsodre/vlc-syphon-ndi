@@ -1,5 +1,7 @@
 # Bundled apps: VLCSyphon.app and VLCNDI.app
 
+(macOS first. For Windows see [VLCNDI for Windows](#vlcndi-for-windows).)
+
 Both apps are the **official, unmodified VLC** for macOS (universal, from VideoLAN) with
 all our plugins added. They differ only in name, bundle ID, icon and which filters are on
 by default:
@@ -55,10 +57,58 @@ Release packaging (`scripts/release-macos.sh`) then notarizes and staples each a
 notarizes the DMGs, zips the plugins for the official VLC, and copies VLC's source tarball
 next to them.
 
+## VLCNDI for Windows
+
+The same idea, from VideoLAN's `vlc-<version>-win64.zip` (downloaded and verified by
+`scripts/fetch-vlc-win64.sh`: VideoLAN's SHA-256, and on Windows the Authenticode signature of
+`vlc.exe`). `scripts/package-windows.sh` copies it to `dist/<version>-<build>/VLCNDI/` and adds:
+
+- `plugins\video_filter\libndi_plugin.dll`, the NDI plugin (there is no Syphon on Windows, so
+  there is no VLCSyphon either).
+- `VLCNDI.exe`, the launcher (`launcher/src/main_windows.c`), with the NDI-blue icon
+  (`resources/icons/VLCNDI.ico`) and the version `3.0.24.N`.
+- `VLCNDI-defaults.vlcrc`, the first-launch settings from `VLCNDI/app.conf`: the default filters
+  and `WINDOWS_CORE_OPTIONS` (`control=ndi`, `embedded-video=0`, `qt-privacy-ask=0` so VLC's
+  privacy question isn't shown and online metadata stays off, `qt-updates-notif=0` so VLC doesn't
+  offer to install plain VLC over it).
+- `SOURCE.txt`.
+
+It is a **portable zip**, not an installer. What the launcher does on each start:
+
+1. Creates the folder `portable` next to `vlc.exe`. VLC for Windows keeps its settings and caches
+   there when it exists (its own portable mode) instead of `%APPDATA%\vlc`, which every VLC on the
+   PC shares. That gives VLCNDI its own settings without any command-line option. The folder must
+   be writable, so the app can't live in Program Files (the launcher says so).
+2. If there is no `portable\vlcrc` yet, copies `VLCNDI-defaults.vlcrc` to it.
+3. If `plugins\plugins.dat` is missing, runs VLC's `vlc-cache-gen.exe` to write it, as VLC's
+   installer does. VideoLAN's zip has no plugin cache, and without one VLC loads every plugin at
+   each start.
+4. Starts `vlc.exe` with the same arguments, waits for it and returns its exit code.
+
+Differences from the macOS apps:
+
+- **Not signed.** There is no Windows code-signing certificate, so SmartScreen warns on first run.
+  VLC's own files keep VideoLAN's signatures.
+- **Crash reports** can't be turned off without changing VLC: after a crash, VLC asks whether to
+  send a report to VideoLAN (nothing is sent without a Yes). The dumps are in
+  `%APPDATA%\vlc\crashdump`, shared with an installed VLC.
+- The taskbar shows VLC's cone while the app runs (the window belongs to `vlc.exe`).
+- No dark interface in VLC 3 for Windows.
+
+`scripts/release-windows.sh <build>` builds, packages and zips. `scripts/publish-windows.sh <build>`
+uploads the zips to the existing GitHub release and merges their checksums into its `SHA256SUMS`.
+Both run in Git Bash on Windows (CMake, Ninja, an msvcrt MinGW-w64 toolchain and `gh` in `PATH`)
+or on Linux/macOS after a cross build.
+
 ## Scripts
 
 | Script | |
 |---|---|
+| `scripts/fetch-vlc-win64.sh [version]` | Windows: download and verify the official 64-bit VLC zip |
+| `scripts/package-windows.sh [build]` | Windows: make `dist/<version>-<build>/VLCNDI/` |
+| `scripts/release-windows.sh <build>` | Windows: build, package, zip the app and the plugin, `SHA256SUMS.windows` |
+| `scripts/publish-windows.sh <build>` | Windows: add the zips to the GitHub release |
+| `scripts/make-ico.ps1` | regenerate `VLCNDI.ico` from `VLCNDI.icns` (PowerShell) |
 | `scripts/fetch-vlc-app.sh [version]` | download and verify the official universal VLC |
 | `scripts/package-macos.sh [build]` | make both apps in `dist/<version>-<build>/` |
 | `scripts/make-dmg.sh <app> <dmg>` | DMG with an Applications shortcut |

@@ -1,4 +1,4 @@
-# ndi (macOS; Windows and Linux to be tested)
+# ndi (macOS and Windows; Linux to be tested)
 
 Pass-through video **and** audio filters that send what VLC plays as an NDI® source,
 while VLC keeps playing normally. Module name `ndi` in both filter lists:
@@ -95,8 +95,17 @@ colours (HD and anamorphic SD, hardware and software decoding, full range) and A
 that flashes white and beeps once a second; frame rate and flash-to-beep offset).
 `build/macos/out/tools/ndi-probe --list` lists the NDI sources on the network.
 
+On Windows (Git Bash, NDI 6 Runtime installed): `scripts/test-ndi-windows.sh` runs the same cases
+in a copy of the official VLC zip, with Direct3D 11 and software decoding. Measured there:
+A/V offset about +10 ms (+36 ms through the VLCNDI app with a real audio output).
+
 ## Limitations
 
 - HDR video is not tone-mapped; 10-bit video is sent as 8-bit.
 - Subtitles and on-screen messages are drawn after the filter, so they are not sent.
-- Windows and Linux: the code is portable and CI builds it, but nothing has been compiled or run there yet.
+- Windows: Direct3D 11 / DXVA2 hardware-decoded frames are not read directly. VLC's own converters
+  copy them to the CPU (I420) before the filter and back to the GPU after it. It works (tested),
+  but costs more than software-decoded video; a native path is future work.
+- Windows: the plugin must be built with an msvcrt MinGW-w64 toolchain (VLC 3's C runtime) and
+  links the MinGW runtime statically, because VLC ships no `libwinpthread-1.dll`.
+- Linux: the code is portable and CI builds it, but it has not been run there yet.

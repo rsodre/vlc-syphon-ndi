@@ -63,6 +63,30 @@ defaults delete $id; rm -rf ~/Library/Preferences/$id ~/Library/Application\ Sup
 - [ ] Both: enable Syphon too in VLCNDI (Video ▸ Filters ▸ Syphon): Syphon and NDI at once.
 - [ ] SD video (a DVD rip, 720×576) shows correct colours in the receiver.
 
+## VLCNDI for Windows
+
+Build it (`apps/scripts/release-windows.sh 1`) or download `VLCNDI-3.0.24-1-win64.zip`, and unzip
+it to a folder you can write to. To repeat a first launch, quit the app and delete the `portable`
+folder inside `VLCNDI` (and `plugins\plugins.dat` to repeat the plugin listing).
+
+- [ ] Before installing the NDI 6 Runtime: play a video. VLC shows **one** error, "NDI Runtime not
+      found. Install the NDI 6 Runtime from http://ndi.link/NDIRedistV6, then restart", and keeps playing.
+- [ ] First launch of `VLCNDI.exe` shows no "Privacy and Network Access Policy" question, and
+      creates `portable\vlcrc`.
+- [ ] Right after launch, with nothing playing, receivers list **<COMPUTER> (VLC)**: 1920×1080,
+      fully transparent.
+- [ ] Play a video with sound: NDI Studio Monitor, OBS with DistroAV or vMix shows picture and
+      sound in sync, and the video plays in its own window.
+- [ ] Tools ▸ Preferences ▸ Show settings: All: **NDI** is ticked under Video ▸ Filters and
+      Audio ▸ Filters. Untick both and Save: the source disappears within a second. Tick and
+      Save: it is back.
+- [ ] Close the video or let the file end: the source stays, fully transparent at the same size.
+- [ ] An installed official VLC is unaffected: no NDI, and `%APPDATA%\vlc\vlcrc` is unchanged.
+- [ ] `VLCNDI.exe` shows the blue icon in Explorer. Help ▸ Check for Updates isn't offered
+      automatically.
+- [ ] Copy the `VLCNDI` folder into `C:\Program Files` and run it without administrator rights:
+      the launcher explains that the folder must be writable, and VLC doesn't start.
+
 ## Things to report
 
 VLC's log helps: Window ▸ Messages (set verbosity to 2), or run from Terminal:

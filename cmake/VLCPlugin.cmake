@@ -122,7 +122,9 @@ function(vsn_add_vlc_plugin name)
     set_target_properties(${target} PROPERTIES SUFFIX ".dylib")
     target_link_options(${target} PRIVATE "LINKER:-dead_strip")
   elseif(WIN32 AND NOT MSVC)
-    target_link_options(${target} PRIVATE -static-libgcc)
+    # The official VLC ships no MinGW runtime DLLs (libwinpthread-1.dll, libgcc), so a
+    # plugin that needs one would not load: link them in. libvlccore stays an import.
+    target_link_options(${target} PRIVATE -static)
   endif()
   if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(${target} PRIVATE -Wall -Wextra -Wno-unused-parameter)

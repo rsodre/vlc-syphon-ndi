@@ -16,7 +16,13 @@ decisions, phased to-do list), then `docs/PHASE0.md` (feasibility results).
 - License: LGPL-2.1-or-later. Put an SPDX header and copyright line in every source file.
 - Universal macOS binaries (arm64 + x86_64), minimum macOS 11.0 (same as official VLC).
   The NDI 6 runtime needs macOS 13. Keep the README's Requirements table current.
-- Windows toolchain: MinGW-w64. Releases: GitHub Releases (two apps + plugin zips).
+- Windows toolchain: MinGW-w64 targeting **msvcrt** (VLC 3's C runtime, never UCRT), runtime
+  linked statically. Releases: GitHub Releases (two apps + plugin zips).
+- **VLCNDI for Windows** is a portable zip: the official `vlc-3.0.24-win64.zip` plus the NDI plugin
+  and the launcher `VLCNDI.exe`, which keeps settings in VLC's `portable` folder (seeded from
+  `VLCNDI-defaults.vlcrc`, from `WINDOWS_CORE_OPTIONS` in `apps/VLCNDI/app.conf`) and writes the
+  plugin cache on first launch. Not signed. Built with `apps/scripts/release-windows.sh`, added
+  to the release with `publish-windows.sh`.
 - The apps are the **official VLC.app repackaged**, with no VLC code changed or compiled.
   The apps/launcher seeds defaults from Info.plist (`VSNDefault{Video,Audio}Filter`,
   `VSNDefaultCoreOptions`, e.g. `embedded-video=0`), set in `apps/<App>/app.conf`, on first launch. Bundle IDs are `com.studioavante.*`, and versions are `<vlc>-<build>` (tag `v3.0.24-1`).
@@ -62,6 +68,25 @@ the maintainer runs those apps between turns. Test a copy with a different bundl
 (e.g. `com.studioavante.vlcsyphon.test`), remove only that copy's settings afterwards, and only
 reset the real apps' settings when asked. A `HOME=` override doesn't isolate Cocoa defaults.
 Don't take screenshots of the maintainer's screen.
+
+### Windows (the maintainer's PC)
+
+Run in Git Bash. The tools are portable copies in `C:\Users\Roger\Documents\Dev\tools` (llvm-mingw
+msvcrt, cmake, ninja, gh, ffmpeg), not in `PATH`: put their `bin` folders in `PATH` for the
+command. Git's own curl fails on certificates there: use `CURL=/c/Windows/System32/curl.exe` for
+the fetch script and `git -c http.sslBackend=schannel` for the remote. The NDI 6 Runtime is installed.
+
+```sh
+cmake --preset windows-mingw && cmake --build --preset windows-mingw   # -> build/windows-mingw/out/
+scripts/test-ndi-windows.sh                  # NDI end to end, in a copy of the official VLC zip
+apps/scripts/release-windows.sh 1            # -> dist/3.0.24-1/VLCNDI/, the two zips, SHA256SUMS.windows
+```
+
+- Never run a test VLC without a `portable` folder next to its `vlc.exe`: it would use the
+  installed VLC's settings in `%APPDATA%\vlc`. Don't change that folder.
+- Don't use `--vout dummy` on Windows: Direct3D 11 hardware decoding then crashes VLC, and VLC
+  shows a "just crashed" question at its next start. Test windows open on the maintainer's screen.
+- Test the packaged app from an unzipped copy outside `dist/`, and delete the copy afterwards.
 
 ## Third-party files and references
 
